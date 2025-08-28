@@ -2,15 +2,93 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <title>殺手數獨（筆記模式 ON/OFF 按鈕＋普通模式切換）</title>
+  <title>殺手數獨（計時器＋答錯統計＋完成/三錯對話框）</title>
   <style>
     body { font-family: sans-serif; }
+    .top-bar {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 0;
+      margin-top: 16px;
+    }
+    #status-bar {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      font-size: 17px;
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: #1565c0;
+    }
+    #timer {
+      font-size: 18px;
+      color: #d84315;
+      font-weight: bold;
+      background: #fffbe7;
+      border-radius: 6px;
+      padding: 3px 10px;
+      border: 1.2px solid #ffcc80;
+      box-shadow: 0 0 6px #ffe082;
+      letter-spacing: 1px;
+    }
+    #error-count {
+      background: #fffbe7;
+      border-radius: 6px;
+      padding: 3px 10px;
+      border: 1.2px solid #2196f3;
+      box-shadow: 0 0 6px #bbdefb;
+    }
+    #note-toggle {
+      font-size:15px; margin-left:12px; padding:4px 18px; border-radius:5px; border:1px solid #2196f3;
+      background:#e3f2fd; color:#1565c0; cursor:pointer; position:relative;
+      box-shadow: 0 0 0px 2px #bbdefb;
+      font-weight:bold;
+      transition:background 0.18s, color 0.18s, box-shadow 0.18s, border 0.18s;
+    }
+    #note-toggle.on {
+      background:#2196f3;
+      color:#fff;
+      box-shadow: 0 0 10px 2px #2196f3;
+      border:2px solid #1565c0;
+    }
+    #note-toggle.off {
+      background:#e3f2fd;
+      color:#1565c0;
+      border:1px solid #2196f3;
+      box-shadow: 0 0 0px 2px #bbdefb;
+    }
+    #toggle-normal {
+      font-size:15px; margin-left:12px; padding:4px 14px; border-radius:5px; border:1.2px solid #888; background:#f7f7f7; color:#333; cursor:pointer; font-weight:bold;
+      transition:background 0.18s, color 0.18s;
+    }
+    #toggle-normal.active { background:#ffe082; color:#000; border:2px solid #fbc02d;}
+    #pre-fill-input {
+      width: 50px;
+      font-size: 16px;
+      text-align: center;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #aaa;
+    }
+    button#new-btn {
+      font-size: 18px;
+      padding: 6px 16px;
+      background: #2196f3;
+      border: none;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button#new-btn:hover { background: #1565c0; }
     .board {
       display: grid;
       grid-template-columns: repeat(9, 40px);
       gap: 0px;
       width: fit-content;
-      margin: 30px auto 10px;
+      margin: 10px auto 10px;
       border: 4px solid #222;
     }
     .cell {
@@ -49,37 +127,6 @@
     .num-btn:hover { background: #2196f3; color: white; }
     .num-btn.del { border: 1px solid #f44336; color: #f44336; }
     .num-btn.del:hover { background: #f44336; color: white; }
-    .top-bar {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-bottom: 0;
-      margin-top: 16px;
-    }
-    #note-toggle {
-      font-size:15px; margin-left:12px; padding:4px 18px; border-radius:5px; border:1px solid #2196f3;
-      background:#e3f2fd; color:#1565c0; cursor:pointer; position:relative;
-      box-shadow: 0 0 0px 2px #bbdefb;
-      font-weight:bold;
-      transition:background 0.18s, color 0.18s, box-shadow 0.18s, border 0.18s;
-    }
-    #note-toggle.on {
-      background:#2196f3;
-      color:#fff;
-      box-shadow: 0 0 10px 2px #2196f3;
-      border:2px solid #1565c0;
-    }
-    #note-toggle.off {
-      background:#e3f2fd;
-      color:#1565c0;
-      border:1px solid #2196f3;
-      box-shadow: 0 0 0px 2px #bbdefb;
-    }
-    #toggle-normal {
-      font-size:15px; margin-left:12px; padding:4px 14px; border-radius:5px; border:1.2px solid #888; background:#f7f7f7; color:#333; cursor:pointer; font-weight:bold;
-      transition:background 0.18s, color 0.18s;
-    }
-    #toggle-normal.active { background:#ffe082; color:#000; border:2px solid #fbc02d;}
     .cage-border-inner {
       position: absolute;
       pointer-events:none;
@@ -121,35 +168,16 @@
       border-radius:4px;
       box-shadow:0 0 3px #bbdefb;
     }
-    #pre-fill-input {
-      width: 50px;
-      font-size: 16px;
-      text-align: center;
-      padding: 2px 6px;
-      border-radius: 4px;
-      border: 1px solid #aaa;
-    }
-    button#new-btn {
-      font-size: 18px;
-      padding: 6px 16px;
-      background: #2196f3;
-      border: none;
-      color: white;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    button#new-btn:hover { background: #1565c0; }
-    #finish-mask {
+    #finish-mask, #error-modal, #result-modal {
       position: fixed;
       left:0; top:0; right:0; bottom:0;
       background: rgba(255,255,255,0.8);
-      z-index: 99;
+      z-index: 110;
       display: flex;
       align-items: center;
       justify-content: center;
-      animation: fadeIn 0.4s;
     }
+    #finish-mask { z-index: 99; }
     #finish-msg {
       font-size: 40px;
       font-weight: bold;
@@ -161,24 +189,11 @@
       -webkit-text-fill-color: transparent;
       animation: rainbow 1.2s linear infinite;
     }
-    @keyframes fadeIn {
-      from { opacity:0; }
-      to { opacity:1; }
-    }
     @keyframes rainbow {
       0%{ filter:hue-rotate(0deg); }
       100%{ filter:hue-rotate(360deg);}
     }
-    #error-modal {
-      position: fixed;
-      left: 0; top: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.35);
-      z-index: 100;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    #error-modal-inner {
+    #error-modal-inner, #result-modal-inner {
       background: #fff;
       border-radius: 12px;
       box-shadow: 0 2px 12px rgba(0,0,0,0.2);
@@ -186,8 +201,19 @@
       text-align: center;
       font-size: 22px;
       color: #1565c0;
+      min-width: 260px;
     }
-    #error-modal-inner button {
+    #result-modal-inner p {
+      font-size: 20px;
+      margin:12px 0 2px 0;
+      color: #333;
+    }
+    #result-modal-inner .summary {
+      font-size: 19px;
+      color: #2196f3;
+      margin-bottom: 14px;
+    }
+    #result-modal-inner button {
       margin-top: 18px;
       font-size: 18px;
       padding: 8px 22px;
@@ -198,12 +224,38 @@
       cursor: pointer;
       transition: background 0.2s;
     }
-    #error-modal-inner button:hover { background: #1565c0; }
+    #result-modal-inner button:hover { background: #1565c0; }
+    #error-modal-inner button {
+      margin-top: 18px;
+      font-size: 18px;
+      padding: 8px 22px;
+      background: #2196f3;
+      border: none;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-right:10px;
+    }
+    #error-modal-inner button:last-child {
+      margin-right:0;
+      background: #ffc107;
+      color:#222;
+      border: 1.5px solid #ffa000;
+    }
+    #error-modal-inner button:last-child:hover {
+      background: #ffd54f;
+      color:#1565c0;
+    }
   </style>
 </head>
 <body>
-  <h1>殺手數獨（筆記模式 ON/OFF 按鈕＋普通模式切換）</h1>
+  <h1>殺手數獨（計時器＋答錯統計＋完成/三錯對話框）</h1>
   <div class="top-bar">
+    <div id="status-bar">
+      <span id="timer">00:00</span>
+      <span id="error-count">0/3</span>
+    </div>
     <div id="control-bar">
       <label>預填格數 <input id="pre-fill-input" type="number" min="10" max="81" value="25"></label>
       <button id="new-btn">產生新題目</button>
@@ -218,8 +270,16 @@
   </div>
   <div id="error-modal" style="display:none;">
     <div id="error-modal-inner">
-      錯誤次數已達3次<br>要重新開始嗎？<br>
+      <div id="error-modal-title">錯誤次數已達3次</div>
       <button id="error-restart-btn">重新開始</button>
+      <button id="error-continue-btn">繼續遊玩</button>
+    </div>
+  </div>
+  <div id="result-modal" style="display:none;">
+    <div id="result-modal-inner">
+      <div style="font-size:32px; color:#43a047; margin-bottom:10px;">🎉 恭喜完成！</div>
+      <div class="summary" id="result-summary"></div>
+      <button id="result-restart-btn">重新開始</button>
     </div>
   </div>
 </body>
@@ -236,6 +296,35 @@
   let selectedCell = null;
   let errorCount = 0;
   let normalMode = false; // 普通數獨模式
+
+  // 計時器
+  let startTime = null, timerInterval = null;
+  let elapsedSeconds = 0;
+  function startTimer() {
+    startTime = Date.now();
+    elapsedSeconds = 0;
+    updateTimerDisplay(0);
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+      updateTimerDisplay(elapsedSeconds);
+    }, 1000);
+  }
+  function stopTimer() {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+  }
+  function updateTimerDisplay(sec) {
+    let mins = Math.floor(sec / 60);
+    let s = sec % 60;
+    document.getElementById("timer").textContent = (mins<10?"0":"")+mins+":"+(s<10?"0":"")+s;
+  }
+  function getElapsedSeconds() {
+    if (startTime) return Math.floor((Date.now() - startTime) / 1000);
+    return elapsedSeconds;
+  }
 
   function is9x9Array(arr) {
     return Array.isArray(arr) && arr.length === 9 && arr.every(row => Array.isArray(row) && row.length === 9);
@@ -260,7 +349,6 @@
       cellNotes = data.cellNotes;
       PRE_FILL_NUM = data.PRE_FILL_NUM || 25;
       errorCount = data.errorCount || 0;
-      document.getElementById("pre-fill-input").value = PRE_FILL_NUM;
       selectedCell = null;
       return true;
     } catch(e) {
@@ -438,18 +526,30 @@
     return true;
   }
 
-  function showFinishAnimation() {
-    document.getElementById("finish-mask").style.display = "flex";
-    setTimeout(()=> {
-      document.getElementById("finish-mask").style.display = "none";
-    }, 1800);
+  function showFinishDialog() {
+    stopTimer();
+    document.getElementById("result-modal").style.display = "flex";
+    document.getElementById("result-summary").innerHTML =
+      `<p>預填格數：<b>${PRE_FILL_NUM}</b></p>
+       <p>用時：<b>${formatSeconds(getElapsedSeconds())}</b></p>
+       <p>答錯次數：<b>${errorCount}</b></p>`;
   }
-
+  function formatSeconds(sec) {
+    let mins = Math.floor(sec/60);
+    let s = sec%60;
+    return (mins<10?"0":"")+mins+":"+(s<10?"0":"")+s;
+  }
+  function hideFinishDialog() {
+    document.getElementById("result-modal").style.display = "none";
+  }
   function showErrorModal() {
+    stopTimer();
     document.getElementById("error-modal").style.display = "flex";
+    document.getElementById("error-modal-title").textContent = "錯誤次數已達3次";
   }
   function hideErrorModal() {
     document.getElementById("error-modal").style.display = "none";
+    startTimer();
   }
 
   function getHighlightMap() {
@@ -498,6 +598,9 @@
     renderBoard();
     document.getElementById("finish-mask").style.display = "none";
     hideErrorModal();
+    hideFinishDialog();
+    startTimer();
+    updateErrorDisplay();
   }
 
   const board = document.getElementById('sudoku-board');
@@ -517,14 +620,12 @@
         if(boxBorders.right) cell.style.borderRight = '1.5px solid #222';
 
         let cageId = getCageId(r, c);
-        // 普通數獨模式不顯示底色
         if(cageId!==-1 && !normalMode) cell.style.background = cages[cageId].color;
 
         if(selectedCell && selectedCell[0]===r && selectedCell[1]===c)
           cell.classList.add('selected');
         if(highlightMap[r][c]) cell.classList.add('hilight');
 
-        // 籠子虛線與加總、普通模式下都不顯示
         if(cageId!==-1 && !normalMode) {
           const borders = getCageInnerBorders(r,c,cages[cageId]);
           if(borders.top || borders.bottom || borders.left || borders.right) {
@@ -551,7 +652,6 @@
           });
         }
 
-        // 筆記顯示（筆記模式下顏色特別明顯）
         if(cellNotes[r][c] && cellNotes[r][c].length>0 && !cellValues[r][c]) {
           const notes = document.createElement('div');
           notes.className = 'notes';
@@ -580,9 +680,7 @@
       }
     }
     saveToStorage();
-    if(isFinished(cellValues, answerGrid, preFillMap)) {
-      showFinishAnimation();
-    }
+    updateErrorDisplay();
     // 筆記模式提示按鈕文字
     const noteBtn = document.getElementById("note-toggle");
     if(noteMode) {
@@ -593,6 +691,9 @@
       noteBtn.textContent = "筆記模式 OFF";
       noteBtn.classList.remove("on");
       noteBtn.classList.add("off");
+    }
+    if(isFinished(cellValues, answerGrid, preFillMap)) {
+      showFinishDialog();
     }
   }
 
@@ -625,6 +726,7 @@
             if(Number(i)!==answerGrid[r][c]) {
               errorCount++;
               saveToStorage();
+              updateErrorDisplay();
               if(errorCount>=3) {
                 showErrorModal();
                 return;
@@ -662,6 +764,10 @@
     pad.appendChild(delBtn);
   }
 
+  function updateErrorDisplay() {
+    document.getElementById("error-count").textContent = `${errorCount}/3`;
+  }
+
   document.getElementById("new-btn").onclick = () => {
     const n = parseInt(document.getElementById("pre-fill-input").value,10);
     let num = Math.max(10, Math.min(81, isNaN(n)?25:n));
@@ -673,10 +779,22 @@
     renderBoard();
   };
 
-  document.getElementById("error-restart-btn").onclick = () => {
+  document.getElementById("result-restart-btn").onclick = () => {
+    hideFinishDialog();
     const n = parseInt(document.getElementById("pre-fill-input").value,10);
     let num = Math.max(10, Math.min(81, isNaN(n)?25:n));
     newPuzzle(num);
+  };
+
+  document.getElementById("error-restart-btn").onclick = () => {
+    hideErrorModal();
+    const n = parseInt(document.getElementById("pre-fill-input").value,10);
+    let num = Math.max(10, Math.min(81, isNaN(n)?25:n));
+    newPuzzle(num);
+  };
+
+  document.getElementById("error-continue-btn").onclick = () => {
+    hideErrorModal();
   };
 
   document.getElementById("toggle-normal").onclick = () => {
@@ -689,6 +807,7 @@
     newPuzzle(PRE_FILL_NUM);
   } else {
     renderBoard();
+    startTimer();
   }
 </script>
 </html>
