@@ -404,7 +404,7 @@ function safeLoadFromStorage() {
 function saveToStorage() {
   const data = {
     answerGrid,
-    s,
+    cages,
     preFills,
     cellValues,
     preFillMap,
@@ -448,9 +448,9 @@ function generateSudoku() {
   fill();
   return grid;
 }
-function generates(grid) {
+function generateCages(grid) {
   const marked = Array.from({length:9},()=>Array(9).fill(false));
-  const s = [];
+  const cages = [];
   const directions = [[0,1],[1,0],[0,-1],[-1,0]];
   while(true){
     let found=false;
@@ -459,11 +459,11 @@ function generates(grid) {
         if(!marked[r][c]) {
           found=true;
           let size = Math.floor(Math.random()*3)+2;
-          const Cells=[[r,c]];
+          const cageCells=[[r,c]];
           marked[r][c]=true;
           for(let k=1;k<size;k++){
             let candidates=[];
-            for(const [cr,cc] of Cells){
+            for(const [cr,cc] of cageCells){
               for(const [dr,dc] of directions){
                 let nr=cr+dr,nc=cc+dc;
                 if(nr>=0&&nr<9&&nc>=0&&nc<9&&!marked[nr][nc]){
@@ -473,48 +473,48 @@ function generates(grid) {
             }
             if(candidates.length){
               const [nr,nc]=candidates[Math.floor(Math.random()*candidates.length)];
-              Cells.push([nr,nc]);
+              cageCells.push([nr,nc]);
               marked[nr][nc]=true;
             }
           }
-          let sum = Cells.reduce((a,[r,c])=>a+grid[r][c],0);
-          s.push({sum:sum,cells:Cells});
+          let sum = cageCells.reduce((a,[r,c])=>a+grid[r][c],0);
+          cages.push({sum:sum,cells:cageCells});
         }
     if(!found) break;
   }
-  return s;
+  return cages;
 }
-function assignColors(s) {
-  function getIdMap(s) {
+function assignCageColors(cages) {
+  function getCageIdMap(cages) {
     const map = Array.from({length:9},()=>Array(9).fill(-1));
-    s.forEach((, idx) => .cells.forEach(([r,c]) => map[r][c]=idx));
+    cages.forEach((cage, idx) => cage.cells.forEach(([r,c]) => map[r][c]=idx));
     return map;
   }
-  const map = getIdMap(s);
-  const Adj = s.map(()=>new Set());
-  s.forEach((, idx) => {
-    .cells.forEach(([r,c]) => {
+  const map = getCageIdMap(cages);
+  const cageAdj = cages.map(()=>new Set());
+  cages.forEach((cage, idx) => {
+    cage.cells.forEach(([r,c]) => {
       [[0,1],[1,0],[0,-1],[-1,0]].forEach(([dr,dc])=>{
         let nr=r+dr,nc=c+dc;
         if(nr>=0&&nr<9&&nc>=0&&nc<9){
           let nId = map[nr][nc];
-          if(nId!==idx && nId!==-1) Adj[idx].add(nId);
+          if(nId!==idx && nId!==-1) cageAdj[idx].add(nId);
         }
       });
     });
   });
-  const ColorIdx = [];
-  for(let i=0;i<s.length;i++){
+  const cageColorIdx = [];
+  for(let i=0;i<cages.length;i++){
     let used = new Set();
-    for(const adj of Adj[i]) {
-      if(typeof ColorIdx[adj]==="number") used.add(ColorIdx[adj]);
+    for(const adj of cageAdj[i]) {
+      if(typeof cageColorIdx[adj]==="number") used.add(cageColorIdx[adj]);
     }
     let pick = 0;
     while(used.has(pick)) pick++;
-    ColorIdx[i]=pick % Colors.length;
+    cageColorIdx[i]=pick % cageColors.length;
   }
-  s.forEach((, idx) => .color = Colors[ColorIdx[idx]]);
-  return s;
+  cages.forEach((cage, idx) => cage.color = cageColors[cageColorIdx[idx]]);
+  return cages;
 }
 function getPreFilled(grid, num) {
   const all = [];
@@ -525,19 +525,19 @@ function getPreFilled(grid, num) {
   }
   return all.slice(0,num).map(([r,c])=>({r,c,value:grid[r][c]}));
 }
-function getId(r,c) {
+function getCageId(r,c) {
   if (normalMode) return -1;
-  for(let i=0;i<s.length;i++)
-    if(s[i].cells.some(([rr,cc])=>rr===r&&cc===c)) return i;
+  for(let i=0;i<cages.length;i++)
+    if(cages[i].cells.some(([rr,cc])=>rr===r&&cc===c)) return i;
   return -1;
 }
-function getInnerBorders(r, c, ) {
+function getCageInnerBorders(r, c, cage) {
   if (normalMode) return {};
   let borders = {};
-  if(!.cells.some(([rr,cc])=>rr===r-1&&cc===c)) borders.top=true;
-  if(!.cells.some(([rr,cc])=>rr===r+1&&cc===c)) borders.bottom=true;
-  if(!.cells.some(([rr,cc])=>rr===r&&cc===c-1)) borders.left=true;
-  if(!.cells.some(([rr,cc])=>rr===r&&cc===c+1)) borders.right=true;
+  if(!cage.cells.some(([rr,cc])=>rr===r-1&&cc===c)) borders.top=true;
+  if(!cage.cells.some(([rr,cc])=>rr===r+1&&cc===c)) borders.bottom=true;
+  if(!cage.cells.some(([rr,cc])=>rr===r&&cc===c-1)) borders.left=true;
+  if(!cage.cells.some(([rr,cc])=>rr===r&&cc===c+1)) borders.right=true;
   return borders;
 }
 function getBoxBorders(r, c) {
@@ -616,7 +616,7 @@ function getFilledNumberCounts() {
 function newPuzzle(preFillNum) {
   PRE_FILL_NUM = preFillNum;
   answerGrid = generateSudoku();
-  s = assignColors(generates(answerGrid));
+  cages = assignCageColors(generateCages(answerGrid));
   preFills = getPreFilled(answerGrid, PRE_FILL_NUM);
   cellValues = Array.from({length:9},()=>Array(9).fill(''));
   preFillMap = Array.from({length:9},()=>Array(9).fill(false));
@@ -649,7 +649,7 @@ function renderBoard() {
       if(boxBorders.bottom) cell.style.borderBottom = '1.5px solid #222';
       if(boxBorders.left) cell.style.borderLeft = '1.5px solid #222';
       if(boxBorders.right) cell.style.borderRight = '1.5px solid #222';
-      let Id = getId(r, c);
+      let cageId = getCageId(r, c);
       if(cageId!==-1 && !normalMode) cell.style.background = cages[cageId].color;
       if(selectedCell && selectedCell[0]===r && selectedCell[1]===c)
         cell.classList.add('selected');
