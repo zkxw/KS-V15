@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <title>殺手數獨（計時器＋答錯統計＋完成/三錯對話框）</title>
+  <title>殺手數獨（穩定功能版）</title>
   <style>
     body { font-family: sans-serif; }
     .top-bar {
@@ -250,7 +250,7 @@
   </style>
 </head>
 <body>
-  <h1>殺手數獨（計時器＋答錯統計＋完成/三錯對話框）</h1>
+  <h1>殺手數獨（穩定功能版）</h1>
   <div class="top-bar">
     <div id="status-bar">
       <span id="timer">00:00</span>
@@ -284,529 +284,558 @@
   </div>
 </body>
 <script>
-  const STORAGE_KEY = "killer_sudoku_save";
-  const cageColors = [
-    "#ffe5cc", "#ccffcc", "#cce5ff", "#ffd9e6", "#e5ccff", "#ffffcc",
-    "#d9e6ff", "#ffcccc", "#ccffe5", "#e6ffd9", "#f5f5dc", "#e0f7fa", "#ffe4e1"
-  ];
+const STORAGE_KEY = "killer_sudoku_save_v2";
+const TIMER_KEY = "killer_sudoku_timer_v2";
+const cageColors = [
+  "#ffe5cc", "#ccffcc", "#cce5ff", "#ffd9e6", "#e5ccff", "#ffffcc",
+  "#d9e6ff", "#ffcccc", "#ccffe5", "#e6ffd9", "#f5f5dc", "#e0f7fa", "#ffe4e1"
+];
+let PRE_FILL_NUM = 25;
+let answerGrid, cages, preFills, cellValues, preFillMap, cellNotes;
+let noteMode = false;
+let selectedCell = null;
+let errorCount = 0;
+let normalMode = false;
+let startTime = null, timerInterval = null;
+let elapsedSeconds = 0;
+let timerPaused = false;
 
-  let PRE_FILL_NUM = 25;
-  let answerGrid, cages, preFills, cellValues, preFillMap, cellNotes;
-  let noteMode = false;
-  let selectedCell = null;
-  let errorCount = 0;
-  let normalMode = false; // 普通數獨模式
-
-  // 計時器
-  let startTime = null, timerInterval = null;
-  let elapsedSeconds = 0;
-  function startTimer() {
-    startTime = Date.now();
-    elapsedSeconds = 0;
-    updateTimerDisplay(0);
-    if (timerInterval) clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
+function saveTimer() {
+  localStorage.setItem(TIMER_KEY, JSON.stringify({
+    startTime: startTime,
+    paused: timerPaused,
+    elapsedSeconds: elapsedSeconds
+  }));
+}
+function loadTimer() {
+  let raw = localStorage.getItem(TIMER_KEY);
+  if (!raw) return false;
+  try {
+    let data = JSON.parse(raw);
+    startTime = data.startTime;
+    timerPaused = data.paused || false;
+    elapsedSeconds = data.elapsedSeconds || 0;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+function resetTimer() {
+  startTime = Date.now();
+  elapsedSeconds = 0;
+  timerPaused = false;
+  updateTimerDisplay(0);
+  saveTimer();
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    if (!timerPaused) {
       elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
       updateTimerDisplay(elapsedSeconds);
-    }, 1000);
-  }
-  function stopTimer() {
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      timerInterval = null;
+      saveTimer();
     }
+  }, 1000);
+}
+function resumeTimer() {
+  timerPaused = false;
+  saveTimer();
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    if (!timerPaused) {
+      elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+      updateTimerDisplay(elapsedSeconds);
+      saveTimer();
+    }
+  }, 1000);
+}
+function startTimer() {
+  if (!startTime) {
+    resetTimer();
+  } else {
+    resumeTimer();
+    updateTimerDisplay(elapsedSeconds);
   }
-  function updateTimerDisplay(sec) {
-    let mins = Math.floor(sec / 60);
-    let s = sec % 60;
-    document.getElementById("timer").textContent = (mins<10?"0":"")+mins+":"+(s<10?"0":"")+s;
+}
+function stopTimer() {
+  timerPaused = true;
+  saveTimer();
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
   }
-  function getElapsedSeconds() {
-    if (startTime) return Math.floor((Date.now() - startTime) / 1000);
-    return elapsedSeconds;
-  }
+}
+function updateTimerDisplay(sec) {
+  let mins = Math.floor(sec / 60);
+  let s = sec % 60;
+  document.getElementById("timer").textContent = (mins<10?"0":"")+mins+":"+(s<10?"0":"")+s;
+}
+function getElapsedSeconds() {
+  if (startTime && !timerPaused) return Math.floor((Date.now() - startTime) / 1000);
+  return elapsedSeconds;
+}
 
-  function is9x9Array(arr) {
-    return Array.isArray(arr) && arr.length === 9 && arr.every(row => Array.isArray(row) && row.length === 9);
+function is9x9Array(arr) {
+  return Array.isArray(arr) && arr.length === 9 && arr.every(row => Array.isArray(row) && row.length === 9);
+}
+function safeLoadFromStorage() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(!raw) return false;
+  try {
+    const data = JSON.parse(raw);
+    if (!is9x9Array(data.cellValues) ||
+        !is9x9Array(data.cellNotes) ||
+        !is9x9Array(data.preFillMap) ||
+        !is9x9Array(data.answerGrid) ||
+        !Array.isArray(data.cages) ||
+        !Array.isArray(data.preFills)) return false;
+    answerGrid = data.answerGrid;
+    cages = data.cages;
+    preFills = data.preFills;
+    cellValues = data.cellValues;
+    preFillMap = data.preFillMap;
+    cellNotes = data.cellNotes;
+    PRE_FILL_NUM = data.PRE_FILL_NUM || 25;
+    errorCount = data.errorCount || 0;
+    selectedCell = null;
+    return true;
+  } catch(e) {
+    return false;
   }
-
-  function safeLoadFromStorage() {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(!raw) return false;
-    try {
-      const data = JSON.parse(raw);
-      if (!is9x9Array(data.cellValues) ||
-          !is9x9Array(data.cellNotes) ||
-          !is9x9Array(data.preFillMap) ||
-          !is9x9Array(data.answerGrid) ||
-          !Array.isArray(data.cages) ||
-          !Array.isArray(data.preFills)) return false;
-      answerGrid = data.answerGrid;
-      cages = data.cages;
-      preFills = data.preFills;
-      cellValues = data.cellValues;
-      preFillMap = data.preFillMap;
-      cellNotes = data.cellNotes;
-      PRE_FILL_NUM = data.PRE_FILL_NUM || 25;
-      errorCount = data.errorCount || 0;
-      selectedCell = null;
-      return true;
-    } catch(e) {
-      return false;
-    }
-  }
-
-  function saveToStorage() {
-    const data = {
-      answerGrid,
-      cages,
-      preFills,
-      cellValues,
-      preFillMap,
-      cellNotes,
-      PRE_FILL_NUM,
-      errorCount
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }
-
-  function generateSudoku() {
-    const grid = Array.from({length:9},()=>Array(9).fill(0));
-    const nums = [1,2,3,4,5,6,7,8,9];
-    function shuffle(arr) {
-      for(let i=arr.length-1;i>0;i--){
-        const j=Math.floor(Math.random()*(i+1));
-        [arr[i],arr[j]]=[arr[j],arr[i]];
-      }
-    }
-    function fill(r=0,c=0) {
-      if(r==9) return true;
-      if(c==9) return fill(r+1,0);
-      shuffle(nums);
-      for(const v of nums) {
-        if(valid(r,c,v)) {
-          grid[r][c]=v;
-          if(fill(r,c+1)) return true;
-          grid[r][c]=0;
-        }
-      }
-      return false;
-    }
-    function valid(r,c,v){
-      for(let i=0;i<9;i++)
-        if(grid[r][i]==v||grid[i][c]==v) return false;
-      const br=Math.floor(r/3)*3,bc=Math.floor(c/3)*3;
-      for(let i=0;i<3;i++) for(let j=0;j<3;j++)
-        if(grid[br+i][bc+j]==v) return false;
-      return true;
-    }
-    fill();
-    return grid;
-  }
-
-  function generateCages(grid) {
-    const marked = Array.from({length:9},()=>Array(9).fill(false));
-    const cages = [];
-    const directions = [[0,1],[1,0],[0,-1],[-1,0]];
-    while(true){
-      let found=false;
-      for(let r=0;r<9&&!found;r++)
-        for(let c=0;c<9&&!found;c++)
-          if(!marked[r][c]) {
-            found=true;
-            let size = Math.floor(Math.random()*3)+2;
-            const cageCells=[[r,c]];
-            marked[r][c]=true;
-            for(let k=1;k<size;k++){
-              let candidates=[];
-              for(const [cr,cc] of cageCells){
-                for(const [dr,dc] of directions){
-                  let nr=cr+dr,nc=cc+dc;
-                  if(nr>=0&&nr<9&&nc>=0&&nc<9&&!marked[nr][nc]){
-                    candidates.push([nr,nc]);
-                  }
-                }
-              }
-              if(candidates.length){
-                const [nr,nc]=candidates[Math.floor(Math.random()*candidates.length)];
-                cageCells.push([nr,nc]);
-                marked[nr][nc]=true;
-              }
-            }
-            let sum = cageCells.reduce((a,[r,c])=>a+grid[r][c],0);
-            cages.push({sum:sum,cells:cageCells});
-          }
-      if(!found) break;
-    }
-    return cages;
-  }
-
-  function assignCageColors(cages) {
-    function getCageIdMap(cages) {
-      const map = Array.from({length:9},()=>Array(9).fill(-1));
-      cages.forEach((cage, idx) => cage.cells.forEach(([r,c]) => map[r][c]=idx));
-      return map;
-    }
-    const map = getCageIdMap(cages);
-    const cageAdj = cages.map(()=>new Set());
-    cages.forEach((cage, idx) => {
-      cage.cells.forEach(([r,c]) => {
-        [[0,1],[1,0],[0,-1],[-1,0]].forEach(([dr,dc])=>{
-          let nr=r+dr,nc=c+dc;
-          if(nr>=0&&nr<9&&nc>=0&&nc<9){
-            let nId = map[nr][nc];
-            if(nId!==idx && nId!==-1) cageAdj[idx].add(nId);
-          }
-        });
-      });
-    });
-    const cageColorIdx = [];
-    for(let i=0;i<cages.length;i++){
-      let used = new Set();
-      for(const adj of cageAdj[i]) {
-        if(typeof cageColorIdx[adj]==="number") used.add(cageColorIdx[adj]);
-      }
-      let pick = 0;
-      while(used.has(pick)) pick++;
-      cageColorIdx[i]=pick % cageColors.length;
-    }
-    cages.forEach((cage, idx) => cage.color = cageColors[cageColorIdx[idx]]);
-    return cages;
-  }
-
-  function getPreFilled(grid, num) {
-    const all = [];
-    for(let r=0;r<9;r++) for(let c=0;c<9;c++) all.push([r,c]);
-    for(let i=all.length-1;i>0;i--){
+}
+function saveToStorage() {
+  const data = {
+    answerGrid,
+    cages,
+    preFills,
+    cellValues,
+    preFillMap,
+    cellNotes,
+    PRE_FILL_NUM,
+    errorCount
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+// 盤面生成
+function generateSudoku() {
+  const grid = Array.from({length:9},()=>Array(9).fill(0));
+  const nums = [1,2,3,4,5,6,7,8,9];
+  function shuffle(arr) {
+    for(let i=arr.length-1;i>0;i--){
       const j=Math.floor(Math.random()*(i+1));
-      [all[i],all[j]]=[all[j],all[i]];
+      [arr[i],arr[j]]=[arr[j],arr[i]];
     }
-    return all.slice(0,num).map(([r,c])=>({r,c,value:grid[r][c]}));
   }
-
-  function getCageId(r,c) {
-    if (normalMode) return -1;
-    for(let i=0;i<cages.length;i++)
-      if(cages[i].cells.some(([rr,cc])=>rr===r&&cc===c)) return i;
-    return -1;
-  }
-
-  function getCageInnerBorders(r, c, cage) {
-    if (normalMode) return {};
-    let borders = {};
-    if(!cage.cells.some(([rr,cc])=>rr===r-1&&cc===c)) borders.top=true;
-    if(!cage.cells.some(([rr,cc])=>rr===r+1&&cc===c)) borders.bottom=true;
-    if(!cage.cells.some(([rr,cc])=>rr===r&&cc===c-1)) borders.left=true;
-    if(!cage.cells.some(([rr,cc])=>rr===r&&cc===c+1)) borders.right=true;
-    return borders;
-  }
-
-  function getBoxBorders(r, c) {
-    let borders = {};
-    if(r%3===0) borders.top=true;
-    if(r%3===2) borders.bottom=true;
-    if(c%3===0) borders.left=true;
-    if(c%3===2) borders.right=true;
-    return borders;
-  }
-
-  function getErrorCells(cellValues, answerGrid, preFillMap) {
-    const errors = Array.from({length:9},()=>Array(9).fill(false));
-    for(let r=0;r<9;r++) for(let c=0;c<9;c++)
-      if(cellValues[r][c] && Number(cellValues[r][c]) !== answerGrid[r][c] && !preFillMap[r][c])
-        errors[r][c]=true;
-    return errors;
-  }
-
-  function isFinished(cellValues, answerGrid, preFillMap) {
-    for(let r=0;r<9;r++) for(let c=0;c<9;c++) {
-      if(!cellValues[r][c]) return false;
-      if(!preFillMap[r][c] && Number(cellValues[r][c]) !== answerGrid[r][c]) return false;
+  function fill(r=0,c=0) {
+    if(r==9) return true;
+    if(c==9) return fill(r+1,0);
+    shuffle(nums);
+    for(const v of nums) {
+      if(valid(r,c,v)) {
+        grid[r][c]=v;
+        if(fill(r,c+1)) return true;
+        grid[r][c]=0;
+      }
     }
+    return false;
+  }
+  function valid(r,c,v){
+    for(let i=0;i<9;i++)
+      if(grid[r][i]==v||grid[i][c]==v) return false;
+    const br=Math.floor(r/3)*3,bc=Math.floor(c/3)*3;
+    for(let i=0;i<3;i++) for(let j=0;j<3;j++)
+      if(grid[br+i][bc+j]==v) return false;
     return true;
   }
-
-  function showFinishDialog() {
-    stopTimer();
-    document.getElementById("result-modal").style.display = "flex";
-    document.getElementById("result-summary").innerHTML =
-      `<p>預填格數：<b>${PRE_FILL_NUM}</b></p>
-       <p>用時：<b>${formatSeconds(getElapsedSeconds())}</b></p>
-       <p>答錯次數：<b>${errorCount}</b></p>`;
-  }
-  function formatSeconds(sec) {
-    let mins = Math.floor(sec/60);
-    let s = sec%60;
-    return (mins<10?"0":"")+mins+":"+(s<10?"0":"")+s;
-  }
-  function hideFinishDialog() {
-    document.getElementById("result-modal").style.display = "none";
-  }
-  function showErrorModal() {
-    stopTimer();
-    document.getElementById("error-modal").style.display = "flex";
-    document.getElementById("error-modal-title").textContent = "錯誤次數已達3次";
-  }
-  function hideErrorModal() {
-    document.getElementById("error-modal").style.display = "none";
-  }
-
-  function getHighlightMap() {
-    const map = Array.from({length:9},()=>Array(9).fill(false));
-    if(selectedCell) {
-      const [sr,sc] = selectedCell;
-      const val = cellValues[sr][sc];
-      if(val) {
-        for(let i=0;i<9;i++) map[sr][i]=true;
-        for(let i=0;i<9;i++) map[i][sc]=true;
-        const br=Math.floor(sr/3)*3, bc=Math.floor(sc/3)*3;
-        for(let r=br;r<br+3;r++) for(let c=bc;c<bc+3;c++) map[r][c]=true;
-        for(let r=0;r<9;r++) for(let c=0;c<9;c++)
-          if(cellValues[r][c]==val) map[r][c]=true;
-      } else {
-        map[sr][sc]=true;
-      }
-    }
-    return map;
-  }
-
-  function getFilledNumberCounts() {
-    const counts = Array(10).fill(0);
-    for(let r=0;r<9;r++) for(let c=0;c<9;c++) {
-      const v = cellValues[r][c];
-      if(v) counts[Number(v)]++;
-    }
-    return counts;
-  }
-
-  function newPuzzle(preFillNum) {
-    PRE_FILL_NUM = preFillNum;
-    answerGrid = generateSudoku();
-    cages = assignCageColors(generateCages(answerGrid));
-    preFills = getPreFilled(answerGrid, PRE_FILL_NUM);
-    cellValues = Array.from({length:9},()=>Array(9).fill(''));
-    preFillMap = Array.from({length:9},()=>Array(9).fill(false));
-    cellNotes = Array.from({length:9},()=>Array.from({length:9},()=>[]));
-    errorCount = 0;
-    for(const {r,c,value} of preFills) {
-      cellValues[r][c]=value;
-      preFillMap[r][c]=true;
-    }
-    selectedCell = null;
-    saveToStorage();
-    renderBoard();
-    document.getElementById("finish-mask").style.display = "none";
-    hideErrorModal();
-    hideFinishDialog();
-    startTimer();
-    updateErrorDisplay();
-  }
-
-  const board = document.getElementById('sudoku-board');
-
-  function renderBoard() {
-    const errorCells = getErrorCells(cellValues, answerGrid, preFillMap);
-    const highlightMap = getHighlightMap();
-    board.innerHTML = '';
-    for(let r=0; r<9; r++) {
-      for(let c=0; c<9; c++) {
-        const cell = document.createElement('div');
-        cell.className = 'cell';
-        const boxBorders = getBoxBorders(r,c);
-        if(boxBorders.top) cell.style.borderTop = '1.5px solid #222';
-        if(boxBorders.bottom) cell.style.borderBottom = '1.5px solid #222';
-        if(boxBorders.left) cell.style.borderLeft = '1.5px solid #222';
-        if(boxBorders.right) cell.style.borderRight = '1.5px solid #222';
-
-        let cageId = getCageId(r, c);
-        if(cageId!==-1 && !normalMode) cell.style.background = cages[cageId].color;
-
-        if(selectedCell && selectedCell[0]===r && selectedCell[1]===c)
-          cell.classList.add('selected');
-        if(highlightMap[r][c]) cell.classList.add('hilight');
-
-        if(cageId!==-1 && !normalMode) {
-          const borders = getCageInnerBorders(r,c,cages[cageId]);
-          if(borders.top || borders.bottom || borders.left || borders.right) {
-            const borderDiv = document.createElement('div');
-            borderDiv.className = 'cage-border-inner';
-            borderDiv.style.border = 'none';
-            if(borders.top)    borderDiv.style.borderTop    = '1.5px dashed #888';
-            if(borders.bottom) borderDiv.style.borderBottom = '1.5px dashed #888';
-            if(borders.left)   borderDiv.style.borderLeft   = '1.5px dashed #888';
-            if(borders.right)  borderDiv.style.borderRight  = '1.5px dashed #888';
-            cell.appendChild(borderDiv);
-          }
-        }
-
-        if(!normalMode) {
-          cages.forEach((cage) => {
-            const [cr,cc] = cage.cells[0];
-            if(cr===r && cc===c) {
-              const label = document.createElement('div');
-              label.className = 'sum-label';
-              label.innerText = cage.sum;
-              cell.appendChild(label);
-            }
-          });
-        }
-
-        if(cellNotes[r][c] && cellNotes[r][c].length>0 && !cellValues[r][c]) {
-          const notes = document.createElement('div');
-          notes.className = 'notes';
-          if(noteMode) notes.style.background = '#fffbe7';
-          for(let i=1;i<=9;i++) {
-            const span = document.createElement('span');
-            if(cellNotes[r][c].includes(i)) span.textContent = i;
-            notes.appendChild(span);
-          }
-          cell.appendChild(notes);
-        }
-        let numHtml = '';
-        if(preFillMap[r][c]) {
-          numHtml = `<span class="cell-value pre-fill">${cellValues[r][c]}</span>`;
-        } else if(cellValues[r][c]) {
-          numHtml = `<span class="cell-value${errorCells[r][c] ? ' error' : ''}">${cellValues[r][c]}</span>`;
-        }
-        cell.innerHTML += numHtml;
-
-        cell.addEventListener('click', () => {
-          selectedCell = [r,c];
-          renderBoard();
-          showNumberPad();
-        });
-        board.appendChild(cell);
-      }
-    }
-    saveToStorage();
-    updateErrorDisplay();
-    // 筆記模式提示按鈕文字
-    const noteBtn = document.getElementById("note-toggle");
-    if(noteMode) {
-      noteBtn.textContent = "筆記模式 ON";
-      noteBtn.classList.remove("off");
-      noteBtn.classList.add("on");
-    } else {
-      noteBtn.textContent = "筆記模式 OFF";
-      noteBtn.classList.remove("on");
-      noteBtn.classList.add("off");
-    }
-    if(isFinished(cellValues, answerGrid, preFillMap)) {
-      showFinishDialog();
-    }
-  }
-
-  function showNumberPad() {
-    const pad = document.getElementById('number-pad');
-    pad.innerHTML = '';
-    pad.style.display = selectedCell ? 'flex' : 'none';
-    const counts = getFilledNumberCounts();
-    for(let i=1;i<=9;i++) {
-      const btn = document.createElement('button');
-      btn.className = 'num-btn';
-      btn.textContent = i;
-      if(counts[i]>=9) btn.classList.add('inactive');
-      btn.disabled = counts[i]>=9;
-      btn.addEventListener('click', () => {
-        if(selectedCell && counts[i]<9) {
-          const [r,c] = selectedCell;
-          if(noteMode) {
-            if(!cellNotes[r][c]) cellNotes[r][c]=[];
-            if(cellNotes[r][c].includes(i)) {
-              cellNotes[r][c]=cellNotes[r][c].filter(x=>x!==i);
-            } else {
-              cellNotes[r][c].push(i);
-              cellNotes[r][c].sort();
-            }
-            saveToStorage();
-            renderBoard();
-          } else {
-            if(preFillMap[r][c]) return; // 預填格不可填答案
-            if(Number(i)!==answerGrid[r][c]) {
-              errorCount++;
-              saveToStorage();
-              updateErrorDisplay();
-              if(errorCount>=3) {
-                showErrorModal();
-                return;
+  fill();
+  return grid;
+}
+function generateCages(grid) {
+  const marked = Array.from({length:9},()=>Array(9).fill(false));
+  const cages = [];
+  const directions = [[0,1],[1,0],[0,-1],[-1,0]];
+  while(true){
+    let found=false;
+    for(let r=0;r<9&&!found;r++)
+      for(let c=0;c<9&&!found;c++)
+        if(!marked[r][c]) {
+          found=true;
+          let size = Math.floor(Math.random()*3)+2;
+          const cageCells=[[r,c]];
+          marked[r][c]=true;
+          for(let k=1;k<size;k++){
+            let candidates=[];
+            for(const [cr,cc] of cageCells){
+              for(const [dr,dc] of directions){
+                let nr=cr+dr,nc=cc+dc;
+                if(nr>=0&&nr<9&&nc>=0&&nc<9&&!marked[nr][nc]){
+                  candidates.push([nr,nc]);
+                }
               }
             }
-            cellValues[r][c] = i;
-            cellNotes[r][c] = [];
-            selectedCell = null;
-            saveToStorage();
-            renderBoard();
+            if(candidates.length){
+              const [nr,nc]=candidates[Math.floor(Math.random()*candidates.length)];
+              cageCells.push([nr,nc]);
+              marked[nr][nc]=true;
+            }
           }
+          let sum = cageCells.reduce((a,[r,c])=>a+grid[r][c],0);
+          cages.push({sum:sum,cells:cageCells});
+        }
+    if(!found) break;
+  }
+  return cages;
+}
+function assignCageColors(cages) {
+  function getCageIdMap(cages) {
+    const map = Array.from({length:9},()=>Array(9).fill(-1));
+    cages.forEach((cage, idx) => cage.cells.forEach(([r,c]) => map[r][c]=idx));
+    return map;
+  }
+  const map = getCageIdMap(cages);
+  const cageAdj = cages.map(()=>new Set());
+  cages.forEach((cage, idx) => {
+    cage.cells.forEach(([r,c]) => {
+      [[0,1],[1,0],[0,-1],[-1,0]].forEach(([dr,dc])=>{
+        let nr=r+dr,nc=c+dc;
+        if(nr>=0&&nr<9&&nc>=0&&nc<9){
+          let nId = map[nr][nc];
+          if(nId!==idx && nId!==-1) cageAdj[idx].add(nId);
         }
       });
-      pad.appendChild(btn);
+    });
+  });
+  const cageColorIdx = [];
+  for(let i=0;i<cages.length;i++){
+    let used = new Set();
+    for(const adj of cageAdj[i]) {
+      if(typeof cageColorIdx[adj]==="number") used.add(cageColorIdx[adj]);
     }
-    const delBtn = document.createElement('button');
-    delBtn.className = 'num-btn del';
-    delBtn.textContent = '清除';
-    delBtn.addEventListener('click', () => {
-      if(selectedCell) {
+    let pick = 0;
+    while(used.has(pick)) pick++;
+    cageColorIdx[i]=pick % cageColors.length;
+  }
+  cages.forEach((cage, idx) => cage.color = cageColors[cageColorIdx[idx]]);
+  return cages;
+}
+function getPreFilled(grid, num) {
+  const all = [];
+  for(let r=0;r<9;r++) for(let c=0;c<9;c++) all.push([r,c]);
+  for(let i=all.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [all[i],all[j]]=[all[j],all[i]];
+  }
+  return all.slice(0,num).map(([r,c])=>({r,c,value:grid[r][c]}));
+}
+function getCageId(r,c) {
+  if (normalMode) return -1;
+  for(let i=0;i<cages.length;i++)
+    if(cages[i].cells.some(([rr,cc])=>rr===r&&cc===c)) return i;
+  return -1;
+}
+function getCageInnerBorders(r, c, cage) {
+  if (normalMode) return {};
+  let borders = {};
+  if(!cage.cells.some(([rr,cc])=>rr===r-1&&cc===c)) borders.top=true;
+  if(!cage.cells.some(([rr,cc])=>rr===r+1&&cc===c)) borders.bottom=true;
+  if(!cage.cells.some(([rr,cc])=>rr===r&&cc===c-1)) borders.left=true;
+  if(!cage.cells.some(([rr,cc])=>rr===r&&cc===c+1)) borders.right=true;
+  return borders;
+}
+function getBoxBorders(r, c) {
+  let borders = {};
+  if(r%3===0) borders.top=true;
+  if(r%3===2) borders.bottom=true;
+  if(c%3===0) borders.left=true;
+  if(c%3===2) borders.right=true;
+  return borders;
+}
+function getErrorCells(cellValues, answerGrid, preFillMap) {
+  const errors = Array.from({length:9},()=>Array(9).fill(false));
+  for(let r=0;r<9;r++) for(let c=0;c<9;c++)
+    if(cellValues[r][c] && Number(cellValues[r][c]) !== answerGrid[r][c] && !preFillMap[r][c])
+      errors[r][c]=true;
+  return errors;
+}
+function isFinished(cellValues, answerGrid, preFillMap) {
+  for(let r=0;r<9;r++) for(let c=0;c<9;c++) {
+    if(!cellValues[r][c]) return false;
+    if(!preFillMap[r][c] && Number(cellValues[r][c]) !== answerGrid[r][c]) return false;
+  }
+  return true;
+}
+function showFinishDialog() {
+  stopTimer();
+  document.getElementById("result-modal").style.display = "flex";
+  document.getElementById("result-summary").innerHTML =
+    `<p>預填格數：<b>${PRE_FILL_NUM}</b></p>
+     <p>用時：<b>${formatSeconds(getElapsedSeconds())}</b></p>
+     <p>答錯次數：<b>${errorCount}</b></p>`;
+}
+function formatSeconds(sec) {
+  let mins = Math.floor(sec/60);
+  let s = sec%60;
+  return (mins<10?"0":"")+mins+":"+(s<10?"0":"")+s;
+}
+function hideFinishDialog() {
+  document.getElementById("result-modal").style.display = "none";
+}
+function showErrorModal() {
+  stopTimer();
+  document.getElementById("error-modal").style.display = "flex";
+  document.getElementById("error-modal-title").textContent = "錯誤次數已達3次";
+}
+function hideErrorModal() {
+  document.getElementById("error-modal").style.display = "none";
+  // 不重置timer
+}
+function getHighlightMap() {
+  const map = Array.from({length:9},()=>Array(9).fill(false));
+  if(selectedCell) {
+    const [sr,sc] = selectedCell;
+    const val = cellValues[sr][sc];
+    if(val) {
+      for(let i=0;i<9;i++) map[sr][i]=true;
+      for(let i=0;i<9;i++) map[i][sc]=true;
+      const br=Math.floor(sr/3)*3, bc=Math.floor(sc/3)*3;
+      for(let r=br;r<br+3;r++) for(let c=bc;c<bc+3;c++) map[r][c]=true;
+      for(let r=0;r<9;r++) for(let c=0;c<9;c++)
+        if(cellValues[r][c]==val) map[r][c]=true;
+    } else {
+      map[sr][sc]=true;
+    }
+  }
+  return map;
+}
+function getFilledNumberCounts() {
+  const counts = Array(10).fill(0);
+  for(let r=0;r<9;r++) for(let c=0;c<9;c++) {
+    const v = cellValues[r][c];
+    if(v) counts[Number(v)]++;
+  }
+  return counts;
+}
+function newPuzzle(preFillNum) {
+  PRE_FILL_NUM = preFillNum;
+  answerGrid = generateSudoku();
+  cages = assignCageColors(generateCages(answerGrid));
+  preFills = getPreFilled(answerGrid, PRE_FILL_NUM);
+  cellValues = Array.from({length:9},()=>Array(9).fill(''));
+  preFillMap = Array.from({length:9},()=>Array(9).fill(false));
+  cellNotes = Array.from({length:9},()=>Array.from({length:9},()=>[]));
+  errorCount = 0;
+  for(const {r,c,value} of preFills) {
+    cellValues[r][c]=value;
+    preFillMap[r][c]=true;
+  }
+  selectedCell = null;
+  saveToStorage();
+  renderBoard();
+  document.getElementById("finish-mask").style.display = "none";
+  hideErrorModal();
+  hideFinishDialog();
+  resetTimer();
+  updateErrorDisplay();
+}
+const board = document.getElementById('sudoku-board');
+function renderBoard() {
+  const errorCells = getErrorCells(cellValues, answerGrid, preFillMap);
+  const highlightMap = getHighlightMap();
+  board.innerHTML = '';
+  for(let r=0; r<9; r++) {
+    for(let c=0; c<9; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      const boxBorders = getBoxBorders(r,c);
+      if(boxBorders.top) cell.style.borderTop = '1.5px solid #222';
+      if(boxBorders.bottom) cell.style.borderBottom = '1.5px solid #222';
+      if(boxBorders.left) cell.style.borderLeft = '1.5px solid #222';
+      if(boxBorders.right) cell.style.borderRight = '1.5px solid #222';
+      let cageId = getCageId(r, c);
+      if(cageId!==-1 && !normalMode) cell.style.background = cages[cageId].color;
+      if(selectedCell && selectedCell[0]===r && selectedCell[1]===c)
+        cell.classList.add('selected');
+      if(highlightMap[r][c]) cell.classList.add('hilight');
+      if(cageId!==-1 && !normalMode) {
+        const borders = getCageInnerBorders(r,c,cages[cageId]);
+        if(borders.top || borders.bottom || borders.left || borders.right) {
+          const borderDiv = document.createElement('div');
+          borderDiv.className = 'cage-border-inner';
+          borderDiv.style.border = 'none';
+          if(borders.top)    borderDiv.style.borderTop    = '1.5px dashed #888';
+          if(borders.bottom) borderDiv.style.borderBottom = '1.5px dashed #888';
+          if(borders.left)   borderDiv.style.borderLeft   = '1.5px dashed #888';
+          if(borders.right)  borderDiv.style.borderRight  = '1.5px dashed #888';
+          cell.appendChild(borderDiv);
+        }
+      }
+      if(!normalMode) {
+        cages.forEach((cage) => {
+          const [cr,cc] = cage.cells[0];
+          if(cr===r && cc===c) {
+            const label = document.createElement('div');
+            label.className = 'sum-label';
+            label.innerText = cage.sum;
+            cell.appendChild(label);
+          }
+        });
+      }
+      if(cellNotes[r][c] && cellNotes[r][c].length>0 && !cellValues[r][c]) {
+        const notes = document.createElement('div');
+        notes.className = 'notes';
+        if(noteMode) notes.style.background = '#fffbe7';
+        for(let i=1;i<=9;i++) {
+          const span = document.createElement('span');
+          if(cellNotes[r][c].includes(i)) span.textContent = i;
+          notes.appendChild(span);
+        }
+        cell.appendChild(notes);
+      }
+      let numHtml = '';
+      if(preFillMap[r][c]) {
+        numHtml = `<span class="cell-value pre-fill">${cellValues[r][c]}</span>`;
+      } else if(cellValues[r][c]) {
+        numHtml = `<span class="cell-value${errorCells[r][c] ? ' error' : ''}">${cellValues[r][c]}</span>`;
+      }
+      cell.innerHTML += numHtml;
+      cell.addEventListener('click', () => {
+        selectedCell = [r,c];
+        renderBoard();
+        showNumberPad();
+      });
+      board.appendChild(cell);
+    }
+  }
+  saveToStorage();
+  updateErrorDisplay();
+  // 筆記模式提示按鈕文字
+  const noteBtn = document.getElementById("note-toggle");
+  if(noteMode) {
+    noteBtn.textContent = "筆記模式 ON";
+    noteBtn.classList.remove("off");
+    noteBtn.classList.add("on");
+  } else {
+    noteBtn.textContent = "筆記模式 OFF";
+    noteBtn.classList.remove("on");
+    noteBtn.classList.add("off");
+  }
+  if(isFinished(cellValues, answerGrid, preFillMap)) {
+    showFinishDialog();
+  }
+}
+function showNumberPad() {
+  const pad = document.getElementById('number-pad');
+  pad.innerHTML = '';
+  pad.style.display = selectedCell ? 'flex' : 'none';
+  const counts = getFilledNumberCounts();
+  for(let i=1;i<=9;i++) {
+    const btn = document.createElement('button');
+    btn.className = 'num-btn';
+    btn.textContent = i;
+    if(counts[i]>=9) btn.classList.add('inactive');
+    btn.disabled = counts[i]>=9;
+    btn.addEventListener('click', () => {
+      if(selectedCell && counts[i]<9) {
         const [r,c] = selectedCell;
         if(noteMode) {
-          cellNotes[r][c] = [];
+          if(!cellNotes[r][c]) cellNotes[r][c]=[];
+          if(cellNotes[r][c].includes(i)) {
+            cellNotes[r][c]=cellNotes[r][c].filter(x=>x!==i);
+          } else {
+            cellNotes[r][c].push(i);
+            cellNotes[r][c].sort();
+          }
           saveToStorage();
           renderBoard();
         } else {
-          if(preFillMap[r][c]) return; // 預填格不可清除
-          cellValues[r][c] = '';
-          saveToStorage();
+          if(preFillMap[r][c]) return;
+          if(Number(i)!==answerGrid[r][c]) {
+            errorCount++;
+            saveToStorage();
+            updateErrorDisplay();
+            if(errorCount>=3) {
+              showErrorModal();
+              return;
+            }
+          }
+          cellValues[r][c] = i;
+          cellNotes[r][c] = [];
           selectedCell = null;
+          saveToStorage();
           renderBoard();
         }
       }
     });
-    pad.appendChild(delBtn);
+    pad.appendChild(btn);
   }
+  const delBtn = document.createElement('button');
+  delBtn.className = 'num-btn del';
+  delBtn.textContent = '清除';
+  delBtn.addEventListener('click', () => {
+    if(selectedCell) {
+      const [r,c] = selectedCell;
+      if(noteMode) {
+        cellNotes[r][c] = [];
+        saveToStorage();
+        renderBoard();
+      } else {
+        if(preFillMap[r][c]) return;
+        cellValues[r][c] = '';
+        saveToStorage();
+        selectedCell = null;
+        renderBoard();
+      }
+    }
+  });
+  pad.appendChild(delBtn);
+}
+function updateErrorDisplay() {
+  document.getElementById("error-count").textContent = `${errorCount}/3`;
+}
 
-  function updateErrorDisplay() {
-    document.getElementById("error-count").textContent = `${errorCount}/3`;
-  }
-
-  document.getElementById("new-btn").onclick = () => {
-    const n = parseInt(document.getElementById("pre-fill-input").value,10);
-    let num = Math.max(10, Math.min(81, isNaN(n)?25:n));
-    newPuzzle(num);
-  };
-
-  document.getElementById("note-toggle").onclick = () => {
-    noteMode = !noteMode;
-    renderBoard();
-  };
-
-  document.getElementById("result-restart-btn").onclick = () => {
-    hideFinishDialog();
-    const n = parseInt(document.getElementById("pre-fill-input").value,10);
-    let num = Math.max(10, Math.min(81, isNaN(n)?25:n));
-    newPuzzle(num);
-  };
-
-  document.getElementById("error-restart-btn").onclick = () => {
-    hideErrorModal();
-    const n = parseInt(document.getElementById("pre-fill-input").value,10);
-    let num = Math.max(10, Math.min(81, isNaN(n)?25:n));
-    newPuzzle(num);
-  };
-
-  document.getElementById("error-continue-btn").onclick = () => {
-    hideErrorModal();
-  };
-
-  document.getElementById("toggle-normal").onclick = () => {
-    normalMode = !normalMode;
-    document.getElementById("toggle-normal").classList.toggle("active", normalMode);
-    renderBoard();
-  };
-
-  if(!safeLoadFromStorage()) {
-    newPuzzle(PRE_FILL_NUM);
+// 事件
+document.getElementById("new-btn").onclick = () => {
+  const n = parseInt(document.getElementById("pre-fill-input").value,10);
+  let num = Math.max(10, Math.min(81, isNaN(n)?25:n));
+  newPuzzle(num);
+};
+document.getElementById("note-toggle").onclick = () => {
+  noteMode = !noteMode;
+  renderBoard();
+};
+document.getElementById("result-restart-btn").onclick = () => {
+  hideFinishDialog();
+  const n = parseInt(document.getElementById("pre-fill-input").value,10);
+  let num = Math.max(10, Math.min(81, isNaN(n)?25:n));
+  newPuzzle(num);
+};
+document.getElementById("error-restart-btn").onclick = () => {
+  hideErrorModal();
+  const n = parseInt(document.getElementById("pre-fill-input").value,10);
+  let num = Math.max(10, Math.min(81, isNaN(n)?25:n));
+  newPuzzle(num);
+};
+document.getElementById("error-continue-btn").onclick = () => {
+  hideErrorModal();
+  resumeTimer(); // 不重置timer，只繼續
+};
+document.getElementById("toggle-normal").onclick = () => {
+  normalMode = !normalMode;
+  document.getElementById("toggle-normal").classList.toggle("active", normalMode);
+  renderBoard();
+};
+// 首次載入或F5時，還原timer
+if(!safeLoadFromStorage()) {
+  newPuzzle(PRE_FILL_NUM);
+} else {
+  renderBoard();
+  if (!loadTimer()) {
+    resetTimer();
   } else {
-    renderBoard();
-    startTimer();
+    resumeTimer();
+    updateTimerDisplay(elapsedSeconds);
   }
+}
+window.addEventListener('beforeunload', function() {
+  saveTimer();
+});
 </script>
 </html>
