@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <title>殺手數獨（完成動畫＋可調預填格）</title>
+  <title>殺手數獨（完成動畫＋可調預填格＋localStorage記錄進度）</title>
   <style>
     body { font-family: sans-serif; }
     .board {
@@ -94,7 +94,6 @@
       transition: background 0.2s;
     }
     button#new-btn:hover { background: #1565c0; }
-    /* 完成動畫 */
     #finish-mask {
       position: fixed;
       left:0; top:0; right:0; bottom:0;
@@ -127,7 +126,7 @@
   </style>
 </head>
 <body>
-  <h1>殺手數獨（完成動畫＋可調預填格）</h1>
+  <h1>殺手數獨（完成動畫＋可調預填格＋localStorage記錄進度）</h1>
   <div id="control-bar">
     <label>預填格數 <input id="pre-fill-input" type="number" min="10" max="81" value="25"></label>
     <button id="new-btn">產生新題目</button>
@@ -139,7 +138,7 @@
   </div>
 </body>
 <script>
-  // 色盤 (可增減)
+  const STORAGE_KEY = "killer_sudoku_save";
   const cageColors = [
     "#ffe5cc", "#ccffcc", "#cce5ff", "#ffd9e6", "#e5ccff", "#ffffcc",
     "#d9e6ff", "#ffcccc", "#ccffe5", "#e6ffd9", "#f5f5dc", "#e0f7fa", "#ffe4e1"
@@ -294,7 +293,6 @@
     return errors;
   }
 
-  // 判斷是否全部填完且無錯誤
   function isFinished(cellValues, answerGrid, preFillMap) {
     for(let r=0;r<9;r++) for(let c=0;c<9;c++) {
       if(!cellValues[r][c]) return false;
@@ -303,7 +301,6 @@
     return true;
   }
 
-  // 顯示完成動畫
   function showFinishAnimation() {
     document.getElementById("finish-mask").style.display = "flex";
     setTimeout(()=> {
@@ -311,7 +308,39 @@
     }, 1800);
   }
 
-  // 初始化盤面
+  function saveToStorage() {
+    // 儲存所有資料（answerGrid, cages, preFills, cellValues, preFillMap, PRE_FILL_NUM）
+    const data = {
+      answerGrid,
+      cages,
+      preFills,
+      cellValues,
+      preFillMap,
+      PRE_FILL_NUM
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
+
+  function loadFromStorage() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return false;
+    try {
+      const data = JSON.parse(raw);
+      if(!data.answerGrid || !data.cages || !data.preFills || !data.cellValues || !data.preFillMap) return false;
+      answerGrid = data.answerGrid;
+      cages = data.cages;
+      preFills = data.preFills;
+      cellValues = data.cellValues;
+      preFillMap = data.preFillMap;
+      PRE_FILL_NUM = data.PRE_FILL_NUM || 25;
+      document.getElementById("pre-fill-input").value = PRE_FILL_NUM;
+      selectedCell = null;
+      return true;
+    } catch(e) {
+      return false;
+    }
+  }
+
   function newPuzzle(preFillNum) {
     PRE_FILL_NUM = preFillNum;
     answerGrid = generateSudoku();
@@ -324,6 +353,7 @@
       preFillMap[r][c]=true;
     }
     selectedCell = null;
+    saveToStorage();
     renderBoard();
     document.getElementById("finish-mask").style.display = "none";
   }
@@ -396,7 +426,7 @@
         board.appendChild(cell);
       }
     }
-    // 完成動畫判斷
+    saveToStorage(); // 每次渲染都自動儲存進度
     if(isFinished(cellValues, answerGrid, preFillMap)) {
       showFinishAnimation();
     }
@@ -432,15 +462,17 @@
     pad.appendChild(delBtn);
   }
 
-  // 產生新題目
   document.getElementById("new-btn").onclick = () => {
     const n = parseInt(document.getElementById("pre-fill-input").value,10);
     let num = Math.max(10, Math.min(81, isNaN(n)?25:n));
     newPuzzle(num);
   };
 
-  // 預設初始化
-  newPuzzle(PRE_FILL_NUM);
-
+  // 先嘗試載入 localStorage，有就還原，否則初始化
+  if(!loadFromStorage()) {
+    newPuzzle(PRE_FILL_NUM);
+  } else {
+    renderBoard();
+  }
 </script>
 </html>
