@@ -2,6 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>殺手數獨（穩定功能版）</title>
   <style>
     body { font-family: sans-serif; }
@@ -246,7 +247,59 @@
     #error-modal-inner button:last-child:hover {
       background: #ffd54f;
       color:#1565c0;
-    }
+    }/* 📱 手機版排版優化 */
+@media (max-width: 600px) {
+  h1 {
+    font-size: 20px;
+    margin: 6px 0;
+  }
+
+  #status-bar {
+    flex-wrap: wrap;
+    font-size: 14px;
+    gap: 10px;
+  }
+
+  #control-bar {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  #control-bar input, 
+  #control-bar button {
+    font-size: 14px;
+    padding: 6px 10px;
+    flex: 1 1 auto;
+    min-width: 90px;
+  }
+
+  .board {
+    grid-template-columns: repeat(9, 1fr);
+    width: 95vw;
+    margin: 8px auto;
+  }
+
+  .cell {
+    width: 10vw;
+    height: 10vw;
+    font-size: 4vw;
+  }
+
+  .number-pad {
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 10px auto;
+    max-width: 95vw;
+  }
+
+  .num-btn {
+    width: 11vw;
+    height: 11vw;
+    font-size: 5vw;
+  }
+}
+
   </style>
 </head>
 <body>
