@@ -404,7 +404,7 @@ function safeLoadFromStorage() {
 function saveToStorage() {
   const data = {
     answerGrid,
-    cages,
+    s,
     preFills,
     cellValues,
     preFillMap,
@@ -448,9 +448,9 @@ function generateSudoku() {
   fill();
   return grid;
 }
-function generateCages(grid) {
+function generates(grid) {
   const marked = Array.from({length:9},()=>Array(9).fill(false));
-  const cages = [];
+  const s = [];
   const directions = [[0,1],[1,0],[0,-1],[-1,0]];
   while(true){
     let found=false;
@@ -459,11 +459,11 @@ function generateCages(grid) {
         if(!marked[r][c]) {
           found=true;
           let size = Math.floor(Math.random()*3)+2;
-          const cageCells=[[r,c]];
+          const Cells=[[r,c]];
           marked[r][c]=true;
           for(let k=1;k<size;k++){
             let candidates=[];
-            for(const [cr,cc] of cageCells){
+            for(const [cr,cc] of Cells){
               for(const [dr,dc] of directions){
                 let nr=cr+dr,nc=cc+dc;
                 if(nr>=0&&nr<9&&nc>=0&&nc<9&&!marked[nr][nc]){
@@ -473,48 +473,48 @@ function generateCages(grid) {
             }
             if(candidates.length){
               const [nr,nc]=candidates[Math.floor(Math.random()*candidates.length)];
-              cageCells.push([nr,nc]);
+              Cells.push([nr,nc]);
               marked[nr][nc]=true;
             }
           }
-          let sum = cageCells.reduce((a,[r,c])=>a+grid[r][c],0);
-          cages.push({sum:sum,cells:cageCells});
+          let sum = Cells.reduce((a,[r,c])=>a+grid[r][c],0);
+          s.push({sum:sum,cells:Cells});
         }
     if(!found) break;
   }
-  return cages;
+  return s;
 }
-function assignCageColors(cages) {
-  function getCageIdMap(cages) {
+function assignColors(s) {
+  function getIdMap(s) {
     const map = Array.from({length:9},()=>Array(9).fill(-1));
-    cages.forEach((cage, idx) => cage.cells.forEach(([r,c]) => map[r][c]=idx));
+    s.forEach((, idx) => .cells.forEach(([r,c]) => map[r][c]=idx));
     return map;
   }
-  const map = getCageIdMap(cages);
-  const cageAdj = cages.map(()=>new Set());
-  cages.forEach((cage, idx) => {
-    cage.cells.forEach(([r,c]) => {
+  const map = getIdMap(s);
+  const Adj = s.map(()=>new Set());
+  s.forEach((, idx) => {
+    .cells.forEach(([r,c]) => {
       [[0,1],[1,0],[0,-1],[-1,0]].forEach(([dr,dc])=>{
         let nr=r+dr,nc=c+dc;
         if(nr>=0&&nr<9&&nc>=0&&nc<9){
           let nId = map[nr][nc];
-          if(nId!==idx && nId!==-1) cageAdj[idx].add(nId);
+          if(nId!==idx && nId!==-1) Adj[idx].add(nId);
         }
       });
     });
   });
-  const cageColorIdx = [];
-  for(let i=0;i<cages.length;i++){
+  const ColorIdx = [];
+  for(let i=0;i<s.length;i++){
     let used = new Set();
-    for(const adj of cageAdj[i]) {
-      if(typeof cageColorIdx[adj]==="number") used.add(cageColorIdx[adj]);
+    for(const adj of Adj[i]) {
+      if(typeof ColorIdx[adj]==="number") used.add(ColorIdx[adj]);
     }
     let pick = 0;
     while(used.has(pick)) pick++;
-    cageColorIdx[i]=pick % cageColors.length;
+    ColorIdx[i]=pick % Colors.length;
   }
-  cages.forEach((cage, idx) => cage.color = cageColors[cageColorIdx[idx]]);
-  return cages;
+  s.forEach((, idx) => .color = Colors[ColorIdx[idx]]);
+  return s;
 }
 function getPreFilled(grid, num) {
   const all = [];
@@ -525,19 +525,19 @@ function getPreFilled(grid, num) {
   }
   return all.slice(0,num).map(([r,c])=>({r,c,value:grid[r][c]}));
 }
-function getCageId(r,c) {
+function getId(r,c) {
   if (normalMode) return -1;
-  for(let i=0;i<cages.length;i++)
-    if(cages[i].cells.some(([rr,cc])=>rr===r&&cc===c)) return i;
+  for(let i=0;i<s.length;i++)
+    if(s[i].cells.some(([rr,cc])=>rr===r&&cc===c)) return i;
   return -1;
 }
-function getCageInnerBorders(r, c, cage) {
+function getInnerBorders(r, c, ) {
   if (normalMode) return {};
   let borders = {};
-  if(!cage.cells.some(([rr,cc])=>rr===r-1&&cc===c)) borders.top=true;
-  if(!cage.cells.some(([rr,cc])=>rr===r+1&&cc===c)) borders.bottom=true;
-  if(!cage.cells.some(([rr,cc])=>rr===r&&cc===c-1)) borders.left=true;
-  if(!cage.cells.some(([rr,cc])=>rr===r&&cc===c+1)) borders.right=true;
+  if(!.cells.some(([rr,cc])=>rr===r-1&&cc===c)) borders.top=true;
+  if(!.cells.some(([rr,cc])=>rr===r+1&&cc===c)) borders.bottom=true;
+  if(!.cells.some(([rr,cc])=>rr===r&&cc===c-1)) borders.left=true;
+  if(!.cells.some(([rr,cc])=>rr===r&&cc===c+1)) borders.right=true;
   return borders;
 }
 function getBoxBorders(r, c) {
@@ -616,7 +616,7 @@ function getFilledNumberCounts() {
 function newPuzzle(preFillNum) {
   PRE_FILL_NUM = preFillNum;
   answerGrid = generateSudoku();
-  cages = assignCageColors(generateCages(answerGrid));
+  s = assignColors(generates(answerGrid));
   preFills = getPreFilled(answerGrid, PRE_FILL_NUM);
   cellValues = Array.from({length:9},()=>Array(9).fill(''));
   preFillMap = Array.from({length:9},()=>Array(9).fill(false));
@@ -649,24 +649,11 @@ function renderBoard() {
       if(boxBorders.bottom) cell.style.borderBottom = '1.5px solid #222';
       if(boxBorders.left) cell.style.borderLeft = '1.5px solid #222';
       if(boxBorders.right) cell.style.borderRight = '1.5px solid #222';
-      let cageId = getCageId(r, c);
+      let Id = getId(r, c);
       if(cageId!==-1 && !normalMode) cell.style.background = cages[cageId].color;
       if(selectedCell && selectedCell[0]===r && selectedCell[1]===c)
         cell.classList.add('selected');
       if(highlightMap[r][c]) cell.classList.add('hilight');
-      if(cageId!==-1 && !normalMode) {
-        const borders = getCageInnerBorders(r,c,cages[cageId]);
-        if(borders.top || borders.bottom || borders.left || borders.right) {
-          const borderDiv = document.createElement('div');
-          borderDiv.className = 'cage-border-inner';
-          borderDiv.style.border = 'none';
-          if(borders.top)    borderDiv.style.borderTop    = '1.5px dashed #888';
-          if(borders.bottom) borderDiv.style.borderBottom = '1.5px dashed #888';
-          if(borders.left)   borderDiv.style.borderLeft   = '1.5px dashed #888';
-          if(borders.right)  borderDiv.style.borderRight  = '1.5px dashed #888';
-          cell.appendChild(borderDiv);
-        }
-      }
       if(!normalMode) {
         cages.forEach((cage) => {
           const [cr,cc] = cage.cells[0];
