@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <title>殺手數獨（完成動畫＋可調預填格＋localStorage記錄進度）</title>
+  <title>殺手數獨（筆記＋標示＋localStorage）</title>
   <style>
     body { font-family: sans-serif; }
     .board {
@@ -27,8 +27,11 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      user-select: none;
+      transition: background 0.15s;
     }
     .cell.selected { border: 2px solid #2196f3; background: #e3f2fd; }
+    .cell.hilight { background: #e0e0e0 !important; }
     .sum-label {
       position: absolute;
       top: 2px; left: 2px;
@@ -45,6 +48,8 @@
     .num-btn:hover { background: #2196f3; color: white; }
     .num-btn.del { border: 1px solid #f44336; color: #f44336; }
     .num-btn.del:hover { background: #f44336; color: white; }
+    #note-toggle { font-size:15px; margin-left:12px; padding:4px 10px; border-radius:5px; border:1px solid #2196f3; background:#e3f2fd; color:#1565c0; cursor:pointer;}
+    #note-toggle.active { background:#2196f3; color:#fff; }
     .cage-border-inner {
       position: absolute;
       pointer-events:none;
@@ -66,6 +71,21 @@
     .cell-value.error {
       color: #f44336;
       font-weight: bold;
+    }
+    .notes {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      left: 0; top: 0;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: repeat(3,1fr);
+      grid-template-rows: repeat(3,1fr);
+      font-size: 9px;
+      color: #888;
+      pointer-events:none;
+      align-items: center;
+      justify-items: center;
     }
     #control-bar {
       display: flex;
@@ -126,10 +146,11 @@
   </style>
 </head>
 <body>
-  <h1>殺手數獨（完成動畫＋可調預填格＋localStorage記錄進度）</h1>
+  <h1>殺手數獨（筆記＋標示＋localStorage）</h1>
   <div id="control-bar">
     <label>預填格數 <input id="pre-fill-input" type="number" min="10" max="81" value="25"></label>
     <button id="new-btn">產生新題目</button>
+    <button id="note-toggle">筆記模式</button>
   </div>
   <div class="board" id="sudoku-board"></div>
   <div class="number-pad" id="number-pad" style="display:none;"></div>
@@ -145,7 +166,9 @@
   ];
 
   let PRE_FILL_NUM = 25;
-  let answerGrid, cages, preFills, cellValues, preFillMap;
+  let answerGrid, cages, preFills, cellValues, preFillMap, cellNotes;
+  let noteMode = false;
+  let selectedCell = null;
 
   function generateSudoku() {
     const grid = Array.from({length:9},()=>Array(9).fill(0));
@@ -309,13 +332,13 @@
   }
 
   function saveToStorage() {
-    // 儲存所有資料（answerGrid, cages, preFills, cellValues, preFillMap, PRE_FILL_NUM）
     const data = {
       answerGrid,
       cages,
       preFills,
       cellValues,
       preFillMap,
+      cellNotes,
       PRE_FILL_NUM
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -326,12 +349,13 @@
     if(!raw) return false;
     try {
       const data = JSON.parse(raw);
-      if(!data.answerGrid || !data.cages || !data.preFills || !data.cellValues || !data.preFillMap) return false;
+      if(!data.answerGrid || !data.cages || !data.preFills || !data.cellValues || !data.preFillMap || !data.cellNotes) return false;
       answerGrid = data.answerGrid;
       cages = data.cages;
       preFills = data.preFills;
       cellValues = data.cellValues;
       preFillMap = data.preFillMap;
+      cellNotes = data.cellNotes;
       PRE_FILL_NUM = data.PRE_FILL_NUM || 25;
       document.getElementById("pre-fill-input").value = PRE_FILL_NUM;
       selectedCell = null;
@@ -348,6 +372,7 @@
     preFills = getPreFilled(answerGrid, PRE_FILL_NUM);
     cellValues = Array.from({length:9},()=>Array(9).fill(''));
     preFillMap = Array.from({length:9},()=>Array(9).fill(false));
+    cellNotes = Array.from({length:9},()=>Array.from({length:9},()=>[]));
     for(const {r,c,value} of preFills) {
       cellValues[r][c]=value;
       preFillMap[r][c]=true;
@@ -359,10 +384,34 @@
   }
 
   const board = document.getElementById('sudoku-board');
-  let selectedCell = null;
+
+  function getHighlightMap() {
+    // 標示功能：
+    // 1. 若選中有答案格，則該行/列/九宮格灰底，盤面其他同數字也灰底
+    // 2. 若選中空格，則只高亮自己
+    const map = Array.from({length:9},()=>Array(9).fill(false));
+    if(selectedCell) {
+      const [sr,sc] = selectedCell;
+      const val = cellValues[sr][sc];
+      if(val) {
+        // 行、列、九宮格
+        for(let i=0;i<9;i++) map[sr][i]=true;
+        for(let i=0;i<9;i++) map[i][sc]=true;
+        const br=Math.floor(sr/3)*3, bc=Math.floor(sc/3)*3;
+        for(let r=br;r<br+3;r++) for(let c=bc;c<bc+3;c++) map[r][c]=true;
+        // 其他同數字
+        for(let r=0;r<9;r++) for(let c=0;c<9;c++)
+          if(cellValues[r][c]==val) map[r][c]=true;
+      } else {
+        map[sr][sc]=true;
+      }
+    }
+    return map;
+  }
 
   function renderBoard() {
     const errorCells = getErrorCells(cellValues, answerGrid, preFillMap);
+    const highlightMap = getHighlightMap();
     board.innerHTML = '';
     for(let r=0; r<9; r++) {
       for(let c=0; c<9; c++) {
@@ -381,6 +430,7 @@
 
         if(selectedCell && selectedCell[0]===r && selectedCell[1]===c)
           cell.classList.add('selected');
+        if(highlightMap[r][c]) cell.classList.add('hilight');
 
         // 籠子虛線框 (絕對定位，比格子小)
         if(cageId!==-1) {
@@ -408,6 +458,17 @@
           }
         });
 
+        // 筆記顯示
+        if(cellNotes[r][c] && cellNotes[r][c].length>0 && !cellValues[r][c]) {
+          const notes = document.createElement('div');
+          notes.className = 'notes';
+          for(let i=1;i<=9;i++) {
+            const span = document.createElement('span');
+            if(cellNotes[r][c].includes(i)) span.textContent = i;
+            notes.appendChild(span);
+          }
+          cell.appendChild(notes);
+        }
         // 數字（預填或玩家填入），用 .cell-value 包裹置中
         let numHtml = '';
         if(preFillMap[r][c]) {
@@ -426,7 +487,7 @@
         board.appendChild(cell);
       }
     }
-    saveToStorage(); // 每次渲染都自動儲存進度
+    saveToStorage();
     if(isFinished(cellValues, answerGrid, preFillMap)) {
       showFinishAnimation();
     }
@@ -442,9 +503,26 @@
       btn.textContent = i;
       btn.addEventListener('click', () => {
         if(selectedCell) {
-          cellValues[selectedCell[0]][selectedCell[1]] = i;
-          selectedCell = null;
-          renderBoard();
+          const [r,c] = selectedCell;
+          if(noteMode) {
+            // 筆記模式，切換數字
+            if(!cellNotes[r][c]) cellNotes[r][c]=[];
+            if(cellNotes[r][c].includes(i)) {
+              cellNotes[r][c]=cellNotes[r][c].filter(x=>x!==i);
+            } else {
+              cellNotes[r][c].push(i);
+              cellNotes[r][c].sort();
+            }
+            saveToStorage();
+            renderBoard();
+          } else {
+            // 填答案
+            cellValues[r][c] = i;
+            cellNotes[r][c] = [];
+            selectedCell = null;
+            saveToStorage();
+            renderBoard();
+          }
         }
       });
       pad.appendChild(btn);
@@ -454,9 +532,17 @@
     delBtn.textContent = '清除';
     delBtn.addEventListener('click', () => {
       if(selectedCell) {
-        cellValues[selectedCell[0]][selectedCell[1]] = '';
-        selectedCell = null;
-        renderBoard();
+        const [r,c] = selectedCell;
+        if(noteMode) {
+          cellNotes[r][c] = [];
+          saveToStorage();
+          renderBoard();
+        } else {
+          cellValues[r][c] = '';
+          saveToStorage();
+          selectedCell = null;
+          renderBoard();
+        }
       }
     });
     pad.appendChild(delBtn);
@@ -468,7 +554,13 @@
     newPuzzle(num);
   };
 
-  // 先嘗試載入 localStorage，有就還原，否則初始化
+  document.getElementById("note-toggle").onclick = () => {
+    noteMode = !noteMode;
+    document.getElementById("note-toggle").classList.toggle("active", noteMode);
+    renderBoard();
+  };
+
+  // 載入 localStorage，有就還原，否則初始化
   if(!loadFromStorage()) {
     newPuzzle(PRE_FILL_NUM);
   } else {
