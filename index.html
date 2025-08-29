@@ -1073,20 +1073,20 @@ document.getElementById("pause-btn").onclick = () => {
   if (timerPaused) {
     // 繼續
     resumeTimer();
-    btn.textContent = "暫停計時";
+    btn.textContent = "暫停";
     btn.classList.remove("paused");
     mask.style.display = "none";
   } else {
     // 暫停
     stopTimer();
-    btn.textContent = "繼續遊戲";
+    btn.textContent = "繼續";
     btn.classList.add("paused");
     mask.style.display = "flex";
   }
 };
 document.getElementById("pause-mask").onclick = () => {
   resumeTimer();
-  document.getElementById("pause-btn").textContent = "暫停計時";
+  document.getElementById("pause-btn").textContent = "暫停";
   document.getElementById("pause-btn").classList.remove("paused");
   document.getElementById("pause-mask").style.display = "none";
 };
