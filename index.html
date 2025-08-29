@@ -299,6 +299,25 @@
     font-size: 5vw;
   }
 }
+   #pause-mask {
+  position: fixed;
+  left:0; top:0; right:0; bottom:0;
+  background: rgba(0,0,0,0.65);
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+#pause-msg {
+  font-size: 32px;
+  font-weight: bold;
+  color: #fff;
+  text-align: center;
+  text-shadow: 0 0 8px #000;
+  line-height: 1.4;
+}
+ 
 
   </style>
 </head>
@@ -335,6 +354,10 @@
       <button id="result-restart-btn">重新開始</button>
     </div>
   </div>
+  <div id="pause-mask" style="display:none;">
+  <div id="pause-msg">⏸ 已暫停<br><small>點擊繼續</small></div>
+</div>
+
 </body>
 <script>
 const STORAGE_KEY = "killer_sudoku_save_v2";
@@ -877,5 +900,29 @@ if(!safeLoadFromStorage()) {
 window.addEventListener('beforeunload', function() {
   saveTimer();
 });
+  document.getElementById("pause-btn").onclick = () => {
+  const btn = document.getElementById("pause-btn");
+  const mask = document.getElementById("pause-mask");
+
+  if (timerPaused) {
+    // 繼續
+    resumeTimer();
+    btn.textContent = "暫停計時";
+    mask.style.display = "none";
+  } else {
+    // 暫停
+    stopTimer();
+    btn.textContent = "繼續計時";
+    mask.style.display = "flex";
+  }
+};
+
+// 點擊遮罩也能繼續遊戲
+document.getElementById("pause-mask").onclick = () => {
+  resumeTimer();
+  document.getElementById("pause-btn").textContent = "暫停計時";
+  document.getElementById("pause-mask").style.display = "none";
+};
+
 </script>
 </html>
