@@ -26,10 +26,10 @@
     #control-bar {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      grid-template-rows: auto auto auto;
+      grid-template-rows: auto auto;
       gap: 10px;
       width: 100%;
-      max-width: 400px;
+      max-width: 500px;
       align-items: center;
       justify-items: center;
     }
@@ -64,17 +64,29 @@
     }
     button#new-btn:hover { background: #1565c0; }
     
-    /* 統一所有控制按鈕的樣式 */
+    /* 第二行：四個功能按鈕橫排 */
+    .function-buttons {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+    
+    /* 統一所有功能按鈕的樣式 */
     #note-toggle, #toggle-normal, #pause-btn, #ranking-btn {
-      font-size: 15px;
-      padding: 8px 16px;
+      flex: 1;
+      font-size: 14px;
+      padding: 8px 12px;
       border-radius: 6px;
       cursor: pointer;
       font-weight: bold;
       transition: all 0.2s;
       white-space: nowrap;
-      min-width: 120px;
       border: none;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     
     /* 筆記按鈕 */
@@ -425,6 +437,7 @@
   /* 控制按鈕區域重新設計 */
   #control-bar {
     grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
     gap: 6px;
     max-width: 95vw;
     margin: 0 auto;
@@ -450,43 +463,20 @@
     justify-self: stretch;
   }
   
-  /* 第二行：筆記 + 普通 */
-  #note-toggle {
-    font-size: 12px;
-    padding: 8px 6px;
-    justify-self: stretch;
-    height: 36px;
+  /* 第二行：四個功能按鈕橫排 */
+  .function-buttons {
+    grid-column: 1 / -1;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    gap: 3px;
+    width: 100%;
   }
   
-  #toggle-normal {
-    font-size: 12px;
-    padding: 8px 6px;
-    justify-self: stretch;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  /* 第三行：暫停 + 計分板 */
-  #pause-btn {
-    font-size: 12px;
-    padding: 8px 6px;
-    justify-self: stretch;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  #ranking-btn {
-    font-size: 12px;
-    padding: 8px 6px;
-    justify-self: stretch;
-    height: 36px;
+  #note-toggle, #toggle-normal, #pause-btn, #ranking-btn {
+    flex: 1;
+    font-size: 10px;
+    padding: 10px 2px;
+    text-align: center;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -571,11 +561,12 @@
       </div>
       <button id="new-btn">產生新題目</button>
       
-      <button id="note-toggle" class="off">筆記 OFF</button>
-      <button id="toggle-normal">普通數獨</button>
-      
-      <button id="pause-btn">暫停</button>
-      <button id="ranking-btn">計分板</button>
+      <div class="function-buttons">
+        <button id="note-toggle" class="off">筆記</button>
+        <button id="toggle-normal">普通</button>
+        <button id="pause-btn">暫停</button>
+        <button id="ranking-btn">計分</button>
+      </div>
     </div>
   </div>
   <div class="board" id="sudoku-board"></div>
