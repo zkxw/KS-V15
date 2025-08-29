@@ -333,6 +333,7 @@
       <button id="new-btn">產生新題目</button>
       <button id="note-toggle" class="off">筆記模式 OFF</button>
       <button id="toggle-normal">切換普通數獨</button>
+      <button id="pause-btn">暫停計時</button>
     </div>
   </div>
   <div class="board" id="sudoku-board"></div>
@@ -914,6 +915,16 @@ window.addEventListener('beforeunload', function() {
     stopTimer();
     btn.textContent = "繼續計時";
     mask.style.display = "flex";
+  }
+};
+document.getElementById("pause-btn").onclick = () => {
+  const btn = document.getElementById("pause-btn");
+  if (timerPaused) {
+    resumeTimer();
+    btn.textContent = "暫停計時";
+  } else {
+    stopTimer();
+    btn.textContent = "繼續計時";
   }
 };
 
