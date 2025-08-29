@@ -169,7 +169,7 @@
       border-radius:4px;
       box-shadow:0 0 3px #bbdefb;
     }
-    #finish-mask, #error-modal, #result-modal {
+    #finish-mask, #error-modal, #result-modal, #ranking-modal {
       position: fixed;
       left:0; top:0; right:0; bottom:0;
       background: rgba(255,255,255,0.8);
@@ -194,7 +194,7 @@
       0%{ filter:hue-rotate(0deg); }
       100%{ filter:hue-rotate(360deg);}
     }
-    #error-modal-inner, #result-modal-inner {
+    #error-modal-inner, #result-modal-inner, #ranking-modal-inner {
       background: #fff;
       border-radius: 12px;
       box-shadow: 0 2px 12px rgba(0,0,0,0.2);
@@ -247,56 +247,127 @@
     #error-modal-inner button:last-child:hover {
       background: #ffd54f;
       color:#1565c0;
-    }/* 📱 手機版排版優化 */
+    }
+    
+    #ranking-modal-inner h2 {
+      margin-top: 0;
+      font-size: 26px;
+      color: #00796b;
+    }
+    #ranking-list {
+      list-style-type: none;
+      padding: 0;
+      margin: 20px 0;
+      text-align: left;
+    }
+    .ranking-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 15px;
+      border-bottom: 1px solid #eee;
+      font-size: 16px;
+    }
+    .ranking-item:last-child {
+      border-bottom: none;
+    }
+    .ranking-item .rank {
+      font-weight: bold;
+      color: #2196f3;
+      min-width: 25px;
+      text-align: center;
+    }
+    .ranking-item .details {
+      flex: 1;
+      display: flex;
+      justify-content: space-between;
+      margin-left: 15px;
+    }
+    .ranking-item .prefill-info {
+      font-weight: bold;
+      color: #d84315;
+    }
+    .ranking-item .time-info {
+      color: #43a047;
+    }
+    .ranking-item .error-info {
+      color: #f44336;
+    }
+    #ranking-modal-inner button {
+        margin-top: 18px;
+        font-size: 18px;
+        padding: 8px 22px;
+        background: #2196f3;
+        border: none;
+        color: white;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    #ranking-modal-inner button:hover {
+        background: #1565c0;
+    }
+    
+/* 📱 手機版排版優化 */
 @media (max-width: 600px) {
   h1 {
     font-size: 20px;
     margin: 6px 0;
   }
-
   #status-bar {
     flex-wrap: wrap;
     font-size: 14px;
     gap: 10px;
   }
-
   #control-bar {
     flex-wrap: wrap;
     justify-content: center;
     gap: 6px;
   }
-
-  #control-bar input, 
+  #control-bar input,
   #control-bar button {
     font-size: 14px;
     padding: 6px 10px;
     flex: 1 1 auto;
     min-width: 90px;
   }
-
   .board {
     grid-template-columns: repeat(9, 1fr);
     width: 95vw;
     margin: 8px auto;
   }
-
   .cell {
     width: 10vw;
     height: 10vw;
     font-size: 4vw;
   }
-
   .number-pad {
     flex-wrap: wrap;
     gap: 6px;
     margin: 10px auto;
     max-width: 95vw;
   }
-
   .num-btn {
     width: 11vw;
     height: 11vw;
     font-size: 5vw;
+  }
+  #ranking-modal-inner {
+    width: 90%;
+    padding: 20px;
+    min-width: unset;
+  }
+  .ranking-item .details {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-left: 10px;
+  }
+  .ranking-item {
+    padding: 8px;
+  }
+  .ranking-item .time-info, .ranking-item .error-info {
+    font-size: 14px;
+    margin-top: 2px;
   }
 }
    #pause-mask {
@@ -317,9 +388,6 @@
   text-shadow: 0 0 8px #000;
   line-height: 1.4;
 }
- 
-
-  
 #pause-btn {
   font-size: 16px;
   padding: 6px 16px;
@@ -348,7 +416,6 @@
   justify-content: center;
   flex-direction: column;
 }
-
 </style>
 </head>
 <body>
@@ -364,6 +431,7 @@
       <button id="note-toggle" class="off">筆記模式 OFF</button>
       <button id="toggle-normal">切換普通數獨</button>
       <button id="pause-btn">暫停計時</button>
+      <button id="ranking-btn">計分板</button>
     </div>
   </div>
   <div class="board" id="sudoku-board"></div>
@@ -386,13 +454,22 @@
     </div>
   </div>
   <div id="pause-mask" style="display:none;">
-  <div id="pause-msg">⏸ 已暫停<br><small>點擊繼續</small></div>
-</div>
-
+    <div id="pause-msg">⏸ 暫停中 點擊繼續</div>
+  </div>
+  
+  <div id="ranking-modal" style="display:none;">
+    <div id="ranking-modal-inner">
+      <h2>🏆 本地計分板</h2>
+      <ul id="ranking-list">
+        </ul>
+      <button id="close-ranking-btn">關閉</button>
+    </div>
+  </div>
 </body>
 <script>
 const STORAGE_KEY = "killer_sudoku_save_v2";
 const TIMER_KEY = "killer_sudoku_timer_v2";
+const RANKING_KEY = "killer_sudoku_ranking";
 const cageColors = [
   "#ffe5cc", "#ccffcc", "#cce5ff", "#ffd9e6", "#e5ccff", "#ffffcc",
   "#d9e6ff", "#ffcccc", "#ccffe5", "#e6ffd9", "#f5f5dc", "#e0f7fa", "#ffe4e1"
@@ -406,6 +483,7 @@ let normalMode = false;
 let startTime = null, timerInterval = null;
 let elapsedSeconds = 0;
 let timerPaused = false;
+let rankingData = [];
 
 function saveTimer() {
   localStorage.setItem(TIMER_KEY, JSON.stringify({
@@ -443,6 +521,7 @@ function resetTimer() {
   }, 1000);
 }
 function resumeTimer() {
+  startTime = Date.now() - elapsedSeconds * 1000; // 從暫停時的計時重新開始
   timerPaused = false;
   saveTimer();
   if (timerInterval) clearInterval(timerInterval);
@@ -676,6 +755,7 @@ function showFinishDialog() {
     `<p>預填格數：<b>${PRE_FILL_NUM}</b></p>
      <p>用時：<b>${formatSeconds(getElapsedSeconds())}</b></p>
      <p>答錯次數：<b>${errorCount}</b></p>`;
+  addRankingEntry(PRE_FILL_NUM, getElapsedSeconds(), errorCount);
 }
 function formatSeconds(sec) {
   let mins = Math.floor(sec/60);
@@ -692,7 +772,6 @@ function showErrorModal() {
 }
 function hideErrorModal() {
   document.getElementById("error-modal").style.display = "none";
-  // 不重置timer
 }
 function getHighlightMap() {
   const map = Array.from({length:9},()=>Array(9).fill(false));
@@ -884,6 +963,74 @@ function showNumberPad() {
 function updateErrorDisplay() {
   document.getElementById("error-count").textContent = `${errorCount}/3`;
 }
+// 排名功能
+function loadRanking() {
+  const raw = localStorage.getItem(RANKING_KEY);
+  try {
+    rankingData = raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    rankingData = [];
+  }
+}
+function saveRanking() {
+  localStorage.setItem(RANKING_KEY, JSON.stringify(rankingData));
+}
+function addRankingEntry(prefill, time, errors) {
+    if (normalMode) return; // 普通數獨不計入排名
+    rankingData.push({ prefill, time, errors });
+    sortRanking();
+    // 只保留前10名
+    rankingData = rankingData.slice(0, 10);
+    saveRanking();
+}
+function sortRanking() {
+    rankingData.sort((a, b) => {
+        // 1. 預填格數: 數字越少越好 (升序)
+        if (a.prefill !== b.prefill) {
+            return a.prefill - b.prefill;
+        }
+        // 2. 時間: 時間越短越好 (升序)
+        if (a.time !== b.time) {
+            return a.time - b.time;
+        }
+        // 3. 錯誤: 錯誤越少越好 (升序)
+        return a.errors - b.errors;
+    });
+}
+function showRankingModal() {
+  const modal = document.getElementById("ranking-modal");
+  const list = document.getElementById("ranking-list");
+  
+  // 先清空列表
+  list.innerHTML = "";
+  
+  if (rankingData.length === 0) {
+    const noData = document.createElement('li');
+    noData.textContent = "目前沒有排名紀錄";
+    noData.style.textAlign = "center";
+    noData.style.fontSize = "16px";
+    noData.style.color = "#888";
+    list.appendChild(noData);
+  } else {
+    rankingData.forEach((entry, index) => {
+      const li = document.createElement('li');
+      li.className = 'ranking-item';
+      li.innerHTML = `
+        <span class="rank">#${index + 1}</span>
+        <div class="details">
+          <span class="prefill-info">預填：${entry.prefill}</span>
+          <span class="time-info">用時：${formatSeconds(entry.time)}</span>
+          <span class="error-info">錯誤：${entry.errors}</span>
+        </div>
+      `;
+      list.appendChild(li);
+    });
+  }
+  modal.style.display = "flex";
+}
+function hideRankingModal() {
+  document.getElementById("ranking-modal").style.display = "none";
+}
 
 // 事件
 document.getElementById("new-btn").onclick = () => {
@@ -909,13 +1056,41 @@ document.getElementById("error-restart-btn").onclick = () => {
 };
 document.getElementById("error-continue-btn").onclick = () => {
   hideErrorModal();
-  resumeTimer(); // 不重置timer，只繼續
+  resumeTimer();
 };
 document.getElementById("toggle-normal").onclick = () => {
   normalMode = !normalMode;
   document.getElementById("toggle-normal").classList.toggle("active", normalMode);
   renderBoard();
 };
+document.getElementById("ranking-btn").onclick = showRankingModal;
+document.getElementById("close-ranking-btn").onclick = hideRankingModal;
+
+// 恢復暫停功能的原始邏輯
+document.getElementById("pause-btn").onclick = () => {
+  const btn = document.getElementById("pause-btn");
+  const mask = document.getElementById("pause-mask");
+  if (timerPaused) {
+    // 繼續
+    resumeTimer();
+    btn.textContent = "暫停計時";
+    btn.classList.remove("paused");
+    mask.style.display = "none";
+  } else {
+    // 暫停
+    stopTimer();
+    btn.textContent = "繼續遊戲";
+    btn.classList.add("paused");
+    mask.style.display = "flex";
+  }
+};
+document.getElementById("pause-mask").onclick = () => {
+  resumeTimer();
+  document.getElementById("pause-btn").textContent = "暫停計時";
+  document.getElementById("pause-btn").classList.remove("paused");
+  document.getElementById("pause-mask").style.display = "none";
+};
+
 // 首次載入或F5時，還原timer
 if(!safeLoadFromStorage()) {
   newPuzzle(PRE_FILL_NUM);
@@ -928,75 +1103,9 @@ if(!safeLoadFromStorage()) {
     updateTimerDisplay(elapsedSeconds);
   }
 }
+loadRanking();
 window.addEventListener('beforeunload', function() {
   saveTimer();
 });
-  document.getElementById("pause-btn").onclick = () => {
-  const btn = document.getElementById("pause-btn");
-  const mask = document.getElementById("pause-mask");
-
-  if (timerPaused) {
-    // 繼續
-    resumeTimer();
-    btn.textContent = "暫停計時";
-    mask.style.display = "none";
-  } else {
-    // 暫停
-    stopTimer();
-    btn.textContent = "繼續計時";
-    mask.style.display = "flex";
-  }
-};
-document.getElementById("pause-btn").onclick = () => {
-  const btn = document.getElementById("pause-btn");
-  if (timerPaused) {
-    resumeTimer();
-    btn.textContent = "暫停計時";
-  } else {
-    stopTimer();
-    btn.textContent = "繼續計時";
-  }
-};
-
-// 點擊遮罩也能繼續遊戲
-document.getElementById("pause-mask").onclick = () => {
-  resumeTimer();
-  document.getElementById("pause-btn").textContent = "暫停計時";
-  document.getElementById("pause-mask").style.display = "none";
-};
-
-
-// === 暫停 / 繼續計時 + 遮罩 ===
-document.getElementById("pause-btn").onclick = () => {
-  const btn = document.getElementById("pause-btn");
-  const mask = document.getElementById("pause-mask");
-
-  if (timerPaused) {
-    // 繼續
-    startTime = Date.now() - elapsedSeconds * 1000;
-    resumeTimer();
-    btn.textContent = "暫停計時";
-    btn.classList.remove("paused");
-    mask.style.display = "none";
-  } else {
-    // 暫停
-    stopTimer();
-    btn.textContent = "繼續遊戲";
-    btn.classList.add("paused");
-    mask.innerHTML = "⏸ 暫停中 點擊繼續";
-    mask.style.display = "flex";
-  }
-};
-
-// 點擊遮罩也能繼續遊戲
-document.getElementById("pause-mask").onclick = () => {
-  startTime = Date.now() - elapsedSeconds * 1000;
-  resumeTimer();
-  const btn = document.getElementById("pause-btn");
-  btn.textContent = "暫停計時";
-  btn.classList.remove("paused");
-  document.getElementById("pause-mask").style.display = "none";
-};
-
 </script>
 </html>
