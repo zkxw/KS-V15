@@ -724,14 +724,10 @@ function safeLoadFromStorage() {
 }
 function saveToStorage() {
   const data = {
-    answerGrid,
-    cages,
-    preFills,
-    cellValues,
-    preFillMap,
-    cellNotes,
-    PRE_FILL_NUM,
-    errorCount
+    answerGrid, cages, preFills, cellValues, preFillMap, cellNotes,
+    PRE_FILL_NUM, errorCount,
+    gameCompleted: isFinished(cellValues, answerGrid, preFillMap), // ← 加這行
+    finalTime: isFinished(cellValues, answerGrid, preFillMap) ? getElapsedSeconds() : null // ← 加這行
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
@@ -965,12 +961,13 @@ function isFinished(cellValues, answerGrid, preFillMap) {
 }
 function showFinishDialog() {
   stopTimer();
+  const finalTime = getElapsedSeconds(); // ← 先保存最終時間
   document.getElementById("result-modal").style.display = "flex";
   document.getElementById("result-summary").innerHTML =
     `<p>預填格數：<b>${PRE_FILL_NUM}</b></p>
-     <p>用時：<b>${formatSeconds(getElapsedSeconds())}</b></p>
+     <p>用時：<b>${formatSeconds(finalTime)}</b></p>
      <p>答錯次數：<b>${errorCount}</b></p>`;
-  addRankingEntry(PRE_FILL_NUM, getElapsedSeconds(), errorCount);
+  addRankingEntry(PRE_FILL_NUM, finalTime, errorCount); // ← 用 finalTime
 }
 function formatSeconds(sec) {
   let mins = Math.floor(sec/60);
@@ -1191,7 +1188,6 @@ function saveRanking() {
   localStorage.setItem(RANKING_KEY, JSON.stringify(rankingData));
 }
 function addRankingEntry(prefill, time, errors) {
-    if (normalMode) return; // 普通數獨不計入排名
     
     // 添加時間戳避免重複
     const timestamp = Date.now();
