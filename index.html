@@ -75,15 +75,15 @@
     /* 統一所有功能按鈕的樣式 */
     #note-toggle, #toggle-normal, #pause-btn, #ranking-btn {
       flex: 1;
-      font-size: 20px;
-      padding: 12px 12px;
+      font-size: 14px;
+      padding: 8px 12px;
       border-radius: 6px;
       cursor: pointer;
       font-weight: bold;
       transition: all 0.2s;
       white-space: nowrap;
       border: none;
-      height: 50px;
+      height: 40px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -445,7 +445,7 @@
   
   /* 第一行：預填 + 新題目 */
   .prefill-group {
-    font-size: 18px;
+    font-size: 12px;
     gap: 6px;
     justify-self: stretch;
     justify-content: center;
@@ -473,10 +473,10 @@
   
   #note-toggle, #toggle-normal, #pause-btn, #ranking-btn {
     flex: 1;
-    font-size: 20px;
-    padding: 10px 6px;
+    font-size: 10px;
+    padding: 10px 2px;
     text-align: center;
-    height: 50px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -735,6 +735,53 @@ function saveToStorage() {
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
+// 檢查數獨是否有唯一解
+function hasUniqueSolution(grid) {
+  let solutionCount = 0;
+  const testGrid = grid.map(row => [...row]);
+  
+  function solve(r = 0, c = 0) {
+    if (r === 9) {
+      solutionCount++;
+      return solutionCount > 1; // 找到超過1個解就停止
+    }
+    if (c === 9) return solve(r + 1, 0);
+    if (testGrid[r][c] !== 0) return solve(r, c + 1);
+    
+    for (let num = 1; num <= 9; num++) {
+      if (isValidMove(testGrid, r, c, num)) {
+        testGrid[r][c] = num;
+        if (solve(r, c + 1)) return true;
+        testGrid[r][c] = 0;
+      }
+    }
+    return false;
+  }
+  
+  solve();
+  return solutionCount === 1;
+}
+
+function isValidMove(grid, row, col, num) {
+  // 檢查行
+  for (let c = 0; c < 9; c++) {
+    if (grid[row][c] === num) return false;
+  }
+  // 檢查列  
+  for (let r = 0; r < 9; r++) {
+    if (grid[r][col] === num) return false;
+  }
+  // 檢查3x3區域
+  const boxRow = Math.floor(row / 3) * 3;
+  const boxCol = Math.floor(col / 3) * 3;
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      if (grid[boxRow + r][boxCol + c] === num) return false;
+    }
+  }
+  return true;
+}
+
 // 盤面生成
 function generateSudoku() {
   const grid = Array.from({length:9},()=>Array(9).fill(0));
@@ -840,11 +887,44 @@ function assignCageColors(cages) {
 function getPreFilled(grid, num) {
   const all = [];
   for(let r=0;r<9;r++) for(let c=0;c<9;c++) all.push([r,c]);
+  
+  let attempts = 0;
+  while(attempts < 100) { // 最多嘗試100次
+    attempts++;
+    
+    // 隨機打亂所有位置
+    for(let i=all.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [all[i],all[j]]=[all[j],all[i]];
+    }
+    
+    // 創建測試用的題目網格
+    const testGrid = grid.map(row => [...row]);
+    const selectedPositions = all.slice(0, num);
+    
+    // 移除非預填格子的數字
+    for(let r=0;r<9;r++) {
+      for(let c=0;c<9;c++) {
+        if(!selectedPositions.some(([rr,cc]) => rr===r && cc===c)) {
+          testGrid[r][c] = 0;
+        }
+      }
+    }
+    
+    // 檢查是否有唯一解
+    if(hasUniqueSolution(testGrid)) {
+      return selectedPositions.map(([r,c])=>({r,c,value:grid[r][c]}));
+    }
+  }
+  
+  // 如果100次都失敗，使用保守策略（更多預填格）
+  console.log("使用保守預填策略");
+  const conservativeNum = Math.min(81, num + 10);
   for(let i=all.length-1;i>0;i--){
     const j=Math.floor(Math.random()*(i+1));
     [all[i],all[j]]=[all[j],all[i]];
   }
-  return all.slice(0,num).map(([r,c])=>({r,c,value:grid[r][c]}));
+  return all.slice(0, conservativeNum).map(([r,c])=>({r,c,value:grid[r][c]}));
 }
 function getCageId(r,c) {
   if (normalMode) return -1;
