@@ -27,9 +27,9 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       grid-template-rows: auto auto auto;
-      gap: 8px;
+      gap: 10px;
       width: 100%;
-      max-width: 320px;
+      max-width: 400px;
       align-items: center;
       justify-items: center;
     }
@@ -37,22 +37,22 @@
     .prefill-group {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 14px;
+      gap: 10px;
+      font-size: 15px;
       color: #1565c0;
       font-weight: bold;
     }
     #pre-fill-input {
-      width: 45px;
-      font-size: 14px;
+      width: 50px;
+      font-size: 15px;
       text-align: center;
-      padding: 4px;
+      padding: 6px;
       border-radius: 4px;
       border: 1px solid #aaa;
     }
     button#new-btn {
-      font-size: 14px;
-      padding: 6px 12px;
+      font-size: 15px;
+      padding: 8px 16px;
       background: #2196f3;
       border: none;
       color: white;
@@ -60,81 +60,74 @@
       cursor: pointer;
       transition: background 0.2s;
       white-space: nowrap;
+      min-width: 120px;
     }
     button#new-btn:hover { background: #1565c0; }
     
-    /* 第二行：筆記模式 + 普通數獨 */
+    /* 統一所有控制按鈕的樣式 */
+    #note-toggle, #toggle-normal, #pause-btn, #ranking-btn {
+      font-size: 15px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s;
+      white-space: nowrap;
+      min-width: 120px;
+      border: none;
+    }
+    
+    /* 筆記按鈕 */
     #note-toggle {
-      font-size: 13px;
-      padding: 5px 12px;
-      border-radius: 5px;
-      border: 1px solid #2196f3;
       background: #e3f2fd;
       color: #1565c0;
-      cursor: pointer;
-      box-shadow: 0 0 0px 2px #bbdefb;
-      font-weight: bold;
-      transition: background 0.18s, color 0.18s, box-shadow 0.18s, border 0.18s;
-      white-space: nowrap;
+      border: 1px solid #2196f3;
     }
     #note-toggle.on {
       background: #2196f3;
       color: #fff;
-      box-shadow: 0 0 10px 2px #2196f3;
-      border: 2px solid #1565c0;
+      border: 1px solid #1565c0;
     }
-    #note-toggle.off {
-      background: #e3f2fd;
-      color: #1565c0;
-      border: 1px solid #2196f3;
-      box-shadow: 0 0 0px 2px #bbdefb;
+    #note-toggle:hover {
+      background: #2196f3;
+      color: #fff;
     }
+    
+    /* 普通數獨按鈕 */
     #toggle-normal {
-      font-size: 13px;
-      padding: 5px 12px;
-      border-radius: 5px;
-      border: 1.2px solid #888;
       background: #f7f7f7;
       color: #333;
-      cursor: pointer;
-      font-weight: bold;
-      transition: background 0.18s, color 0.18s;
-      white-space: nowrap;
+      border: 1px solid #888;
     }
     #toggle-normal.active { 
       background: #ffe082; 
       color: #000; 
-      border: 2px solid #fbc02d;
+      border: 1px solid #fbc02d;
+    }
+    #toggle-normal:hover {
+      background: #ffe082;
+      color: #000;
     }
     
-    /* 第三行：暫停 + 計分板 */
+    /* 暫停按鈕 */
     #pause-btn {
-      font-size: 13px;
-      padding: 5px 16px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
       background: #2196f3;
       color: white;
-      font-weight: bold;
-      transition: background 0.25s, transform 0.1s;
-      white-space: nowrap;
+      border: 1px solid #1565c0;
     }
-    #pause-btn:hover { background: #1565c0; }
+    #pause-btn:hover { 
+      background: #1565c0; 
+    }
     #pause-btn.paused {
       background: #f44336;
+      border: 1px solid #d32f2f;
     }
+    
+    /* 計分板按鈕 */
     #ranking-btn {
-      font-size: 13px;
-      padding: 5px 12px;
-      border: 1px solid #00796b;
-      border-radius: 6px;
       background: #e0f2f1;
       color: #00796b;
-      cursor: pointer;
-      font-weight: bold;
-      transition: background 0.2s;
-      white-space: nowrap;
+      border: 1px solid #00796b;
     }
     #ranking-btn:hover {
       background: #00796b;
@@ -459,28 +452,44 @@
   
   /* 第二行：筆記 + 普通 */
   #note-toggle {
-    font-size: 11px;
-    padding: 4px 8px;
+    font-size: 12px;
+    padding: 8px 6px;
     justify-self: stretch;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   
   #toggle-normal {
-    font-size: 11px;
-    padding: 4px 8px;
+    font-size: 12px;
+    padding: 8px 6px;
     justify-self: stretch;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   
   /* 第三行：暫停 + 計分板 */
   #pause-btn {
-    font-size: 11px;
-    padding: 4px 8px;
+    font-size: 12px;
+    padding: 8px 6px;
     justify-self: stretch;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   
   #ranking-btn {
-    font-size: 11px;
-    padding: 4px 8px;
+    font-size: 12px;
+    padding: 8px 6px;
     justify-self: stretch;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   
   .board {
