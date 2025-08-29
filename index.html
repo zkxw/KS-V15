@@ -941,7 +941,7 @@ function showNumberPad() {
   }
   const delBtn = document.createElement('button');
   delBtn.className = 'num-btn del';
-  delBtn.textContent = '清除';
+  delBtn.textContent = 'X';
   delBtn.addEventListener('click', () => {
     if(selectedCell) {
       const [r,c] = selectedCell;
