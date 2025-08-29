@@ -1192,11 +1192,16 @@ function saveRanking() {
 }
 function addRankingEntry(prefill, time, errors) {
     if (normalMode) return; // 普通數獨不計入排名
-    rankingData.push({ prefill, time, errors });
+    
+    // 添加時間戳避免重複
+    const timestamp = Date.now();
+    rankingData.push({ prefill, time, errors, timestamp });
     sortRanking();
-    // 只保留前10名
+    
+    // 保留前10名
     rankingData = rankingData.slice(0, 10);
     saveRanking();
+    console.log(`新增記錄: 預填${prefill}, 錯誤${errors}, 時間${time}s, 總記錄數: ${rankingData.length}`);
 }
 function sortRanking() {
     rankingData.sort((a, b) => {
@@ -1204,12 +1209,12 @@ function sortRanking() {
         if (a.prefill !== b.prefill) {
             return a.prefill - b.prefill;
         }
-        // 2. 時間: 時間越短越好 (升序)
-        if (a.time !== b.time) {
-            return a.time - b.time;
+        // 2. 錯誤次數: 錯誤越少越好 (升序)  
+        if (a.errors !== b.errors) {
+            return a.errors - b.errors;
         }
-        // 3. 錯誤: 錯誤越少越好 (升序)
-        return a.errors - b.errors;
+        // 3. 時間: 時間越短越好 (升序)
+        return a.time - b.time;
     });
 }
 function showRankingModal() {
@@ -1219,23 +1224,34 @@ function showRankingModal() {
   // 先清空列表
   list.innerHTML = "";
   
+  console.log(`顯示排名，共有 ${rankingData.length} 筆記錄`);
+  
   if (rankingData.length === 0) {
     const noData = document.createElement('li');
     noData.textContent = "目前沒有排名紀錄";
     noData.style.textAlign = "center";
     noData.style.fontSize = "16px";
     noData.style.color = "#888";
+    noData.style.padding = "20px";
     list.appendChild(noData);
   } else {
     rankingData.forEach((entry, index) => {
       const li = document.createElement('li');
       li.className = 'ranking-item';
+      
+      // 根據排名給不同的獎章
+      let medal = "";
+      if (index === 0) medal = "🥇";
+      else if (index === 1) medal = "🥈"; 
+      else if (index === 2) medal = "🥉";
+      else medal = `#${index + 1}`;
+      
       li.innerHTML = `
-        <span class="rank">#${index + 1}</span>
+        <span class="rank">${medal}</span>
         <div class="details">
           <span class="prefill-info">預填：${entry.prefill}</span>
-          <span class="time-info">用時：${formatSeconds(entry.time)}</span>
           <span class="error-info">錯誤：${entry.errors}</span>
+          <span class="time-info">用時：${formatSeconds(entry.time)}</span>
         </div>
       `;
       list.appendChild(li);
