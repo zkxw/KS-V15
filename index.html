@@ -319,7 +319,37 @@
 }
  
 
-  </style>
+  
+#pause-btn {
+  font-size: 16px;
+  padding: 6px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #2196f3;
+  color: white;
+  font-weight: bold;
+  transition: background 0.25s, transform 0.1s;
+}
+#pause-btn:hover { background: #1565c0; }
+#pause-btn.paused {
+  background: #f44336;
+}
+#pause-mask {
+  position: fixed;
+  left: 0; top: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,1);
+  color: #fff;
+  font-size: 36px;
+  font-weight: bold;
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+</style>
 </head>
 <body>
   <h1>殺手數獨（穩定功能版）</h1>
@@ -932,6 +962,39 @@ document.getElementById("pause-btn").onclick = () => {
 document.getElementById("pause-mask").onclick = () => {
   resumeTimer();
   document.getElementById("pause-btn").textContent = "暫停計時";
+  document.getElementById("pause-mask").style.display = "none";
+};
+
+
+// === 暫停 / 繼續計時 + 遮罩 ===
+document.getElementById("pause-btn").onclick = () => {
+  const btn = document.getElementById("pause-btn");
+  const mask = document.getElementById("pause-mask");
+
+  if (timerPaused) {
+    // 繼續
+    startTime = Date.now() - elapsedSeconds * 1000;
+    resumeTimer();
+    btn.textContent = "暫停計時";
+    btn.classList.remove("paused");
+    mask.style.display = "none";
+  } else {
+    // 暫停
+    stopTimer();
+    btn.textContent = "繼續遊戲";
+    btn.classList.add("paused");
+    mask.innerHTML = "⏸ 暫停中";
+    mask.style.display = "flex";
+  }
+};
+
+// 點擊遮罩也能繼續遊戲
+document.getElementById("pause-mask").onclick = () => {
+  startTime = Date.now() - elapsedSeconds * 1000;
+  resumeTimer();
+  const btn = document.getElementById("pause-btn");
+  btn.textContent = "暫停計時";
+  btn.classList.remove("paused");
   document.getElementById("pause-mask").style.display = "none";
 };
 
