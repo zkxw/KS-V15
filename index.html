@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>殺手數獨（穩定功能版）</title>
+  <title>殺手數獨</title>
   <style>
     body { font-family: sans-serif; }
     .top-bar {
@@ -419,7 +419,7 @@
 </style>
 </head>
 <body>
-  <h1>殺手數獨（穩定功能版）</h1>
+  <h1>殺手數獨</h1>
   <div class="top-bar">
     <div id="status-bar">
       <span id="timer">00:00</span>
@@ -428,9 +428,9 @@
     <div id="control-bar">
       <label>預填格數 <input id="pre-fill-input" type="number" min="10" max="81" value="25"></label>
       <button id="new-btn">產生新題目</button>
-      <button id="note-toggle" class="off">筆記模式 OFF</button>
-      <button id="toggle-normal">切換普通數獨</button>
-      <button id="pause-btn">暫停計時</button>
+      <button id="note-toggle" class="off">筆記 OFF</button>
+      <button id="toggle-normal">普通數獨</button>
+      <button id="pause-btn">暫停</button>
       <button id="ranking-btn">計分板</button>
     </div>
   </div>
@@ -459,7 +459,7 @@
   
   <div id="ranking-modal" style="display:none;">
     <div id="ranking-modal-inner">
-      <h2>🏆 本地計分板</h2>
+      <h2>🏆 計分板</h2>
       <ul id="ranking-list">
         </ul>
       <button id="close-ranking-btn">關閉</button>
@@ -882,11 +882,11 @@ function renderBoard() {
   // 筆記模式提示按鈕文字
   const noteBtn = document.getElementById("note-toggle");
   if(noteMode) {
-    noteBtn.textContent = "筆記模式 ON";
+    noteBtn.textContent = "筆記 ON";
     noteBtn.classList.remove("off");
     noteBtn.classList.add("on");
   } else {
-    noteBtn.textContent = "筆記模式 OFF";
+    noteBtn.textContent = "筆記 OFF";
     noteBtn.classList.remove("on");
     noteBtn.classList.add("off");
   }
